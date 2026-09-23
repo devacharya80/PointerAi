@@ -1,7 +1,8 @@
 import { prisma } from "../../lib/prisma.js";
 import type { RegisterInput, LoginInput } from "./auth.type.js";
 import bcrypt from "bcryptjs";
-import {issueTokens} from "./token.service.js"
+import { issueTokens } from "./token.service.js";
+import { AppError } from "../../lib/AppError.js";
 
 export const register = async (userData: RegisterInput) => {
   const hashedPass = await bcrypt.hash(userData.password, 12);
@@ -15,7 +16,7 @@ export const register = async (userData: RegisterInput) => {
     });
 
     if (existingUser) {
-      throw new Error("User already exists");
+      throw new AppError("User already exists",409);
     }
 
     const newUser = await tx.user.create({
@@ -38,10 +39,10 @@ export const register = async (userData: RegisterInput) => {
     return newUser;
   });
 
-  const tokens = await issueTokens(result.id,result.email)
+  const tokens = await issueTokens(result.id, result.email);
   return {
     data: result,
-    ...tokens
+    ...tokens,
   };
 };
 
@@ -54,7 +55,7 @@ export const login = async (userData: LoginInput) => {
     },
   });
 
-  const invalidCredentials = new Error("Invalid email or password");
+  const invalidCredentials = new AppError("Invalid email or password",401);
 
   if (!user || !user.password) {
     throw invalidCredentials;
@@ -71,7 +72,10 @@ export const login = async (userData: LoginInput) => {
 
   const { password, ...userWithoutPassword } = user;
 
-  const tokens = await issueTokens(userWithoutPassword.id,userWithoutPassword.email)
+  const tokens = await issueTokens(
+    userWithoutPassword.id,
+    userWithoutPassword.email,
+  );
 
-  return {data : userWithoutPassword,...tokens};
+  return { data: userWithoutPassword, ...tokens };
 };

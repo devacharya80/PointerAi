@@ -5,6 +5,8 @@ import cors from "cors";
 
 import type { Request, Response } from "express";
 
+import {errorHandler} from "./middleware/errorHandler.js"
+
 export const app = express();
 
 app.use(helmet());
@@ -22,3 +24,5 @@ app.get("/health",(req:Request,res: Response) => {
         "timestamp": new Date().toISOString()
     })
 })
+
+app.use(errorHandler)
