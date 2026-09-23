@@ -11,3 +11,96 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id String @id @default(uuid())
+
+  firstName String
+  lastName String?
+  email String @unique
+  password String?
+
+  oauthProvider String?
+  oauthId String?
+
+  profile Profile?
+
+  conversations Conversation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Profile {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  academicField AcademicField?
+  currentLevel CurrentLevel?
+  learningGoals String[]
+  preferredDepth PreferredDepth?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AcademicField {
+  COMPUTER_SCIENCE
+  INFORMATION_TECHNOLOGY
+  MEDICAL
+  ELECTRONICS
+  ELECTRICAL
+  MECHANICAL
+  CIVIL
+  CHEMICAL
+  AERONAUTICAL
+  BIOTECHNOLOGY
+  OTHER
+}
+
+enum CurrentLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum PreferredDepth {
+  CONCISE
+  BALANCED
+  DETAILED
+}
+
+model Conversation {
+  id String @id @default(uuid())
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  title String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Message {
+  id String @id @default(uuid())
+
+  conversationId String
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role MessageRole
+  content String
+
+  createdAt DateTime @default(now())
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
