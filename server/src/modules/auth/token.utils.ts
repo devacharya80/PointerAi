@@ -28,7 +28,7 @@ export const generateRefreshToken = (payload: JWTPayload): string => {
 const verifyToken = (
   token: string,
   secret: string,
-  errorMessage: string
+  errorMessage: string,
 ): JWTPayload => {
   try {
     const decodedPayload = jwt.verify(token, secret);
@@ -57,11 +57,7 @@ export const verifyAccessToken = (token: string): JWTPayload => {
     throw new Error("JWT_ACCESS_SECRET is not configured");
   }
 
-  return verifyToken(
-    token,
-    secret,
-    "Invalid or expired access token"
-  );
+  return verifyToken(token, secret, "Invalid or expired access token");
 };
 
 export const verifyRefreshToken = (token: string): JWTPayload => {
@@ -71,9 +67,5 @@ export const verifyRefreshToken = (token: string): JWTPayload => {
     throw new Error("JWT_REFRESH_SECRET is not configured");
   }
 
-  return verifyToken(
-    token,
-    secret,
-    "Invalid or expired refresh token"
-  );
+  return verifyToken(token, secret, "Invalid or expired refresh token");
 };

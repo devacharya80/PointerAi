@@ -1,15 +1,16 @@
 import { prisma } from "../../lib/prisma.js";
 import type { RegisterInput, LoginInput } from "./auth.type.js";
 import bcrypt from "bcryptjs";
+import {issueTokens} from "./token.service.js"
 
 export const register = async (userData: RegisterInput) => {
-    const hashedPass = await bcrypt.hash(userData.password, 12)
+  const hashedPass = await bcrypt.hash(userData.password, 12);
   const result = await prisma.$transaction(async (tx) => {
     const email = userData.email.toLowerCase().trim();
 
     const existingUser = await tx.user.findUnique({
       where: {
-        email
+        email,
       },
     });
 
@@ -20,7 +21,7 @@ export const register = async (userData: RegisterInput) => {
     const newUser = await tx.user.create({
       data: {
         ...userData,
-        email : email,
+        email: email,
         password: hashedPass,
       },
       omit: {
@@ -36,7 +37,12 @@ export const register = async (userData: RegisterInput) => {
     });
     return newUser;
   });
-  return result;
+
+  const tokens = await issueTokens(result.id,result.email)
+  return {
+    data: result,
+    ...tokens
+  };
 };
 
 export const login = async (userData: LoginInput) => {
@@ -56,7 +62,7 @@ export const login = async (userData: LoginInput) => {
 
   const isPasswordValid = await bcrypt.compare(
     userData.password,
-    user.password
+    user.password,
   );
 
   if (!isPasswordValid) {
@@ -65,5 +71,7 @@ export const login = async (userData: LoginInput) => {
 
   const { password, ...userWithoutPassword } = user;
 
-  return userWithoutPassword;
+  const tokens = await issueTokens(userWithoutPassword.id,userWithoutPassword.email)
+
+  return {data : userWithoutPassword,...tokens};
 };
