@@ -1,5 +1,6 @@
 import type { JWTPayload } from "./auth.type.js";
 import jwt from "jsonwebtoken";
+import { AppError } from "../../lib/AppError.js";
 
 export const generateAccessToken = (payload: JWTPayload): string => {
   const secret = process.env.JWT_ACCESS_SECRET;
@@ -46,7 +47,7 @@ const verifyToken = (
       email: decodedPayload.email,
     };
   } catch {
-    throw new Error(errorMessage);
+    throw new AppError(errorMessage,401);
   }
 };
 
