@@ -7,6 +7,8 @@ import type { Request, Response } from "express";
 
 import {errorHandler} from "./middleware/errorHandler.js"
 
+import authRoute from "./modules/auth/auth.route.js"
+
 export const app = express();
 
 app.use(helmet());
@@ -24,5 +26,7 @@ app.get("/health",(req:Request,res: Response) => {
         "timestamp": new Date().toISOString()
     })
 })
+
+app.use("/api/auth",authRoute)
 
 app.use(errorHandler)

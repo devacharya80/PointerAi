@@ -37,7 +37,11 @@ export const register = async (userData: RegisterInput) => {
       },
     });
     return newUser;
-  });
+  },
+{
+  maxWait : 5000,
+  timeout : 5000
+});
 
   const tokens = await issueTokens(result.id, result.email);
   return {
