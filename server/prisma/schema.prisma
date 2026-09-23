@@ -26,6 +26,7 @@ model User {
   profile Profile?
 
   conversations Conversation[]
+  refreshToken RefreshToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -103,4 +104,19 @@ model Message {
 enum MessageRole {
   USER
   ASSISTANT
+}
+
+model RefreshToken {
+  id String @id @default(uuid())
+
+  userId String 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tokenHash String @unique
+
+  @@index([tokenHash])
+  @@index([userId])
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
 }
