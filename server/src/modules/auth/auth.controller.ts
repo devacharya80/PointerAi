@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { register, login, refreshAccessToken } from "./auth.service.js";
+import { register, login, refreshAccessToken, logout } from "./auth.service.js";
 import { registerSchema, loginSchema } from "./auth.schema.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { AppError } from "../../lib/AppError.js";
@@ -65,3 +65,15 @@ export const refreshController = asyncHandler(async(req: Request, res: Response)
 
   return res.status(200).json({ accessToken });
 })
+
+export const logoutController = asyncHandler(async (req: Request, res: Response) => {
+  const refreshToken = req.cookies.refreshToken;
+
+  if (refreshToken) {
+    await logout(refreshToken);
+  }
+
+  res.clearCookie("refreshToken");
+
+  return res.status(200).json({ message: "Logged out" });
+});

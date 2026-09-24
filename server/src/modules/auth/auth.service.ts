@@ -134,3 +134,15 @@ export const refreshAccessToken = async (token: string) => {
     email: refreshToken.user.email,
   });
 };
+
+
+export const logout = async (token: string) => {
+  const hashedRefreshToken = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  await prisma.refreshToken.deleteMany({
+    where: { tokenHash: hashedRefreshToken },
+  });
+};
