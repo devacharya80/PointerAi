@@ -3,6 +3,8 @@ import { register, login, refreshAccessToken, logout } from "./auth.service.js";
 import { registerSchema, loginSchema } from "./auth.schema.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { AppError } from "../../lib/AppError.js";
+import { issueTokens } from "./token.service.js";
+import { User } from "../../generated/prisma/client.js";
 
 export const registerController = asyncHandler(async (req: Request, res: Response) => {
   const validatedUserData = registerSchema.safeParse(req.body);
@@ -79,5 +81,17 @@ export const logoutController = asyncHandler(async (req: Request, res: Response)
 });
 
 export const googleCallbackController = asyncHandler(async (req: Request, res: Response) => {
-  
-})
+  const user = req.user as User// Passport provides the authenticated user
+
+  const tokens = await issueTokens(user.id, user.email);
+
+  res.cookie("refreshToken", tokens.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  // Redirect to frontend with access token
+  res.redirect(`${process.env.CLIENT_URL}/auth/callback?accessToken=${tokens.accessToken}`);
+});

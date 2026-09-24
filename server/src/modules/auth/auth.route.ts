@@ -10,12 +10,12 @@ authRoute.post("/register",registerController)
 authRoute.post("/login",loginController)
 authRoute.post("/refresh",refreshController)
 authRoute.post("/logout",logoutController)
-authRoute.get("/google", passport.authenticate("google", { 
+authRoute.get("/google", passport.authenticate("google", {
   scope: ["profile", "email"],
-  session: false 
+  session: false,
 }));
 
-authRoute.get("/google/callback", 
+authRoute.get("/google/callback",
   passport.authenticate("google", { session: false, failureRedirect: "/login" }),
   googleCallbackController
 );
