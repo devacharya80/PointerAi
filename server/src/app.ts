@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 import type { Request, Response } from "express";
 
@@ -19,6 +20,7 @@ app.use(
   }),
 );
 app.use(express.json())
+app.use(cookieParser());
 
 app.get("/health",(req:Request,res: Response) => {
     res.status(200).json({

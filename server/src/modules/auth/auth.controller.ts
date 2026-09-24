@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
-import { register, login } from "./auth.service.js";
+import { register, login, refreshAccessToken } from "./auth.service.js";
 import { registerSchema, loginSchema } from "./auth.schema.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
+import { AppError } from "../../lib/AppError.js";
 
 export const registerController = asyncHandler(async (req: Request, res: Response) => {
   const validatedUserData = registerSchema.safeParse(req.body);
@@ -51,4 +52,16 @@ export const loginController = asyncHandler(async (req: Request, res: Response) 
     user: loggedUser.data,
     accessToken: loggedUser.accessToken,
   });
+})
+
+export const refreshController = asyncHandler(async(req: Request, res: Response) => {
+  const refreshToken: string = req.cookies.refreshToken;
+
+  if(!refreshToken){
+    throw new AppError("No refresh token provided", 401)
+  }
+
+  const accessToken: string = await refreshAccessToken(refreshToken);
+
+  return res.status(200).json({ accessToken });
 })
