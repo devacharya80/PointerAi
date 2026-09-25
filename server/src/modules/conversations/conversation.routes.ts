@@ -8,6 +8,7 @@ import {
   deleteConversationByIdController,
 } from "./conversation.controller.js";
 import { validateUser } from "../../middleware/auth.middleware.js";
+import {sendMessageController} from "./message.controller.js"
 
 // Conversations
 conversationRoute.get("/", validateUser, getConversationsController);
@@ -21,6 +22,6 @@ conversationRoute.delete("/:conversationId",validateUser,deleteConversationByIdC
 
 // Messages inside a conversation
 // conversationRoute.get("/conversations/:conversationId/messages");
-// conversationRoute.post("/conversations/:conversationId/messages");
+conversationRoute.post("/:conversationId/messages",validateUser,sendMessageController);
 
 export default conversationRoute;
