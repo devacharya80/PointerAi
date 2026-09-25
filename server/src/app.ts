@@ -12,6 +12,7 @@ import {errorHandler} from "./middleware/errorHandler.js"
 import authRoute from "./modules/auth/auth.route.js"
 import conversationRoute from "./modules/conversations/conversation.routes.js"
 import "./modules/auth/passport.config.js";
+import { appRateLimitMiddleware } from "./middleware/rateLimit.middleware.js";
 
 export const app = express();
 
@@ -24,6 +25,8 @@ app.use(
 );
 app.use(express.json())
 app.use(cookieParser());
+
+app.use(appRateLimitMiddleware)
 
 app.get("/health",(req:Request,res: Response) => {
     res.status(200).json({

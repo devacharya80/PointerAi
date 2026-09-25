@@ -9,6 +9,8 @@ import {
 import { validateUser } from "../../middleware/auth.middleware.js";
 import {sendMessageController} from "./message.controller.js"
 
+import { aiRateLimitMiddleware } from "../../middleware/rateLimit.middleware.js";
+
 // Conversations
 conversationRoute.get("/", validateUser, getConversationsController);
 conversationRoute.get(
@@ -19,8 +21,8 @@ conversationRoute.get(
 conversationRoute.delete("/:conversationId",validateUser,deleteConversationByIdController);
 
 // Messages inside a conversation
-conversationRoute.post("/messages", validateUser, sendMessageController);
-conversationRoute.post("/:conversationId/messages", validateUser, sendMessageController);
+conversationRoute.post("/messages", validateUser, aiRateLimitMiddleware,sendMessageController);
+conversationRoute.post("/:conversationId/messages", validateUser, aiRateLimitMiddleware,sendMessageController);
 
 
 export default conversationRoute;
