@@ -1,0 +1,26 @@
+import express from "express";
+const conversationRoute = express.Router();
+
+import {
+  createConversationController,
+  getConversationsController,
+  getConversationByIdController,
+  deleteConversationByIdController,
+} from "./conversation.controller.js";
+import { validateUser } from "../../middleware/auth.middleware.js";
+
+// Conversations
+conversationRoute.get("/", validateUser, getConversationsController);
+conversationRoute.get(
+  "/:conversationId",
+  validateUser,
+  getConversationByIdController,
+);
+conversationRoute.post("/", validateUser, createConversationController);
+conversationRoute.delete("/:conversationId",validateUser,deleteConversationByIdController);
+
+// Messages inside a conversation
+// conversationRoute.get("/conversations/:conversationId/messages");
+// conversationRoute.post("/conversations/:conversationId/messages");
+
+export default conversationRoute;

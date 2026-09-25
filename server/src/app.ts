@@ -10,6 +10,7 @@ import type { Request, Response } from "express";
 import {errorHandler} from "./middleware/errorHandler.js"
 
 import authRoute from "./modules/auth/auth.route.js"
+import conversationRoute from "./modules/conversations/conversation.routes.js"
 import "./modules/auth/passport.config.js";
 
 export const app = express();
@@ -33,5 +34,6 @@ app.get("/health",(req:Request,res: Response) => {
 app.use(passport.initialize());
 
 app.use("/api/auth",authRoute)
+app.use("/api/conversations",conversationRoute)
 
 app.use(errorHandler)
