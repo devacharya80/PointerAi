@@ -5,7 +5,7 @@ import { issueTokens } from "./token.service.js";
 import { AppError } from "../../lib/AppError.js";
 import crypto from "crypto";
 import { generateAccessToken, verifyRefreshToken } from "./token.utils.js";
-import { app } from "../../app.js";
+
 
 export const register = async (userData: RegisterInput) => {
   const hashedPass = await bcrypt.hash(userData.password, 12);
