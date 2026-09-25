@@ -2,7 +2,7 @@ import { generateAiResponse } from "../../ai/ai.service.js";
 import { prisma } from "../../../lib/prisma.js";
 
 export const generateTitle = async (
-  conversationId: string,
+  conversationId: string | undefined,
   content: string,
 ) => {
   const aiTitle = await generateAiResponse([

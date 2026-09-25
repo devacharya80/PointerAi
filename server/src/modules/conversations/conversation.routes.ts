@@ -2,7 +2,6 @@ import express from "express";
 const conversationRoute = express.Router();
 
 import {
-  createConversationController,
   getConversationsController,
   getConversationByIdController,
   deleteConversationByIdController,
@@ -17,11 +16,11 @@ conversationRoute.get(
   validateUser,
   getConversationByIdController,
 );
-conversationRoute.post("/", validateUser, createConversationController);
 conversationRoute.delete("/:conversationId",validateUser,deleteConversationByIdController);
 
 // Messages inside a conversation
-// conversationRoute.get("/conversations/:conversationId/messages");
-conversationRoute.post("/:conversationId/messages",validateUser,sendMessageController);
+conversationRoute.post("/messages", validateUser, sendMessageController);
+conversationRoute.post("/:conversationId/messages", validateUser, sendMessageController);
+
 
 export default conversationRoute;

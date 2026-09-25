@@ -2,26 +2,36 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/AppError.js";
 import { generateAiResponse } from "../ai/ai.service.js";
 import type { ChatMessage } from "../ai/ai.types.js";
-import {generateTitle} from "./utils/auto.title.generation.js"
+import { generateTitle } from "./utils/auto.title.generation.js";
+import {createConversation} from "./conversation.service.js"
 
 export const sendMessage = async (
   userId: string,
-  conversationId: string,
+  conversationId: string | undefined,
   content: string,
 ) => {
-  const conversation = await prisma.conversation.findFirst({
-    where: {
-      id: conversationId,
-      userId,
-    },
-  });
-  if (!conversation) {
-    throw new AppError("Conversation not found or unauthorized", 404);
+  let activeConversationId: string;
+
+  if (conversationId) {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        userId,
+      },
+    });
+
+    if (!conversation) {
+      throw new AppError("Conversation not found or unauthorized", 404);
+    }
+    activeConversationId = conversation.id;
+  } else {
+    const newConversation = await createConversation(userId)
+    activeConversationId = newConversation.id;
   }
 
   const currMessages = await prisma.message.create({
     data: {
-      conversationId,
+      conversationId: activeConversationId,
       role: "USER",
       content,
     },
@@ -30,20 +40,20 @@ export const sendMessage = async (
   const userMessage = currMessages.content;
 
   const history = await prisma.message.findMany({
-  where: { conversationId },
-  orderBy: { createdAt: "desc" },
-  take: 20,
-});
-
-const canAutoTitleGenerate = history.length === 1;
-
-if (canAutoTitleGenerate) {
-  generateTitle(conversationId, content).catch((err) => {
-    console.error("Title generation failed:", err);
+    where: { conversationId: activeConversationId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
   });
-}
 
-const orderedHistory = history.reverse();
+  const canAutoTitleGenerate = history.length === 1;
+
+  if (canAutoTitleGenerate) {
+    generateTitle(activeConversationId, content).catch((err) => {
+      console.error("Title generation failed:", err);
+    });
+  }
+
+  const orderedHistory = history.reverse();
 
   const mappedHistory: ChatMessage[] = orderedHistory.map((chat) => ({
     role: chat.role === "USER" ? "user" : "assistant",
@@ -63,7 +73,7 @@ const orderedHistory = history.reverse();
   return await prisma.$transaction(async (tx) => {
     const aiMessage = await tx.message.create({
       data: {
-        conversationId,
+        conversationId: activeConversationId,
         role: "ASSISTANT",
         content: AiResponse.message,
       },
@@ -71,7 +81,7 @@ const orderedHistory = history.reverse();
 
     await tx.conversation.update({
       where: {
-        id: conversationId,
+        id: activeConversationId,
       },
       data: {
         updatedAt: new Date(),
@@ -79,7 +89,8 @@ const orderedHistory = history.reverse();
     });
 
     return {
-        userMessage,
+      conversationId : activeConversationId,
+      userMessage,
       aiMessage,
     };
   });
