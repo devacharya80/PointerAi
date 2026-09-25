@@ -2,6 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/AppError.js";
 import { generateAiResponse } from "../ai/ai.service.js";
 import type { ChatMessage } from "../ai/ai.types.js";
+import {generateTitle} from "./utils/auto.title.generation.js"
 
 export const sendMessage = async (
   userId: string,
@@ -33,6 +34,14 @@ export const sendMessage = async (
   orderBy: { createdAt: "desc" },
   take: 20,
 });
+
+const canAutoTitleGenerate = history.length === 1;
+
+if (canAutoTitleGenerate) {
+  generateTitle(conversationId, content).catch((err) => {
+    console.error("Title generation failed:", err);
+  });
+}
 
 const orderedHistory = history.reverse();
 
