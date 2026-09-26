@@ -9,6 +9,7 @@ const client = new Groq({
 
 export const getGroqChatCompletion = async (
   messages: ChatMessage[],
+  model : string = "openai/gpt-oss-20b"
 ): Promise<AiResponse> => {
   const chatCompletion = await client.chat.completions.create({
     messages,
