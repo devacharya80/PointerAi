@@ -21,7 +21,7 @@ Respond with ONLY the word "true" or "false" — nothing else.`,
 
   const response = await generateAiResponse(
     classificationMessages,
-    "llama-3.1-8b-instant"
+    "openai/gpt-oss-20b"
   );
 
   return response.message.trim().toLowerCase() === "true";
