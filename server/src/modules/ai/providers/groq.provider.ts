@@ -13,7 +13,7 @@ export const getGroqChatCompletion = async (
 ): Promise<AiResponse> => {
   const chatCompletion = await client.chat.completions.create({
     messages,
-    model: "openai/gpt-oss-20b",
+    model: model,
   });
   const responseMessage = chatCompletion.choices[0]?.message?.content;
   if (!responseMessage) {
