@@ -98,6 +98,8 @@ model Message {
   role MessageRole
   content String
 
+  source Source[]
+
   createdAt DateTime @default(now())
 }
 
@@ -119,4 +121,19 @@ model RefreshToken {
 
   createdAt DateTime @default(now())
   expiresAt DateTime
+}
+
+model Source {
+  id String @id @default(uuid())
+  content String
+  url String
+  title String
+  score Float
+  
+  messageId String
+  message Message @relation(fields: [messageId], references: [id],onDelete: Cascade)
+
+  @@index([messageId])
+
+  createdAt DateTime @default(now())
 }

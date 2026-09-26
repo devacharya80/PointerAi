@@ -39,4 +39,15 @@ app.use(passport.initialize());
 app.use("/api/auth",authRoute)
 app.use("/api/conversations",conversationRoute)
 
+import {tavily} from "@tavily/core";
+
+app.get("/test",async (req,res) => {
+  const tvly = tavily({apiKey:process.env.TAVILY_API_KEY})
+  const response = await tvly.search("best AI startups in Bangalore 2026")
+  console.log(response)
+  res.status(200).json({
+    "data" : response
+  })
+})
+
 app.use(errorHandler)
