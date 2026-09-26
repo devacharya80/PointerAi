@@ -14,12 +14,18 @@ export const sendMessageController = asyncHandler(
         ? req.params.conversationId
         : undefined;
 
-    const validatedContent = contentSchema.parse(req.body);
+    const validatedContent = contentSchema.safeParse(req.body);
+
+    if (!validatedContent.success) {
+      return res.status(400).json({
+        error: validatedContent.error,
+      });
+    }
 
     const result = await sendMessage(
       userId,
       conversationId,
-      validatedContent.content,
+      validatedContent.data.content,
     );
 
     // Clarification response

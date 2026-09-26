@@ -13,6 +13,7 @@ import authRoute from "./modules/auth/auth.route.js"
 import conversationRoute from "./modules/conversations/conversation.routes.js"
 import "./modules/auth/passport.config.js";
 import { appRateLimitMiddleware } from "./middleware/rateLimit.middleware.js";
+import profileRoute from "./modules/profile/profile.route.js"
 
 export const app = express();
 
@@ -38,5 +39,6 @@ app.use(passport.initialize());
 
 app.use("/api/auth",authRoute)
 app.use("/api/conversations",conversationRoute)
+app.use("/api/profile",profileRoute)
 
 app.use(errorHandler)
