@@ -1,8 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { getUserId } from "../lib/getUserId.js";
 import { aiRateLimiter, appRateLimiter, authRateLimiter } from "./limiter_instance/instances.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 
-export const aiRateLimitMiddleware = async (
+export const aiRateLimitMiddleware = asyncHandler( async (
   req: Request,
   res: Response,
   next: NextFunction,
@@ -28,9 +29,9 @@ export const aiRateLimitMiddleware = async (
   }
 
   next();
-};
+});
 
-export const authRateLimitMiddleware = async (
+export const authRateLimitMiddleware = asyncHandler( async (
   req: Request,
   res: Response,
   next: NextFunction,
@@ -55,9 +56,9 @@ export const authRateLimitMiddleware = async (
   }
 
   next();
-};
+});
 
-export const appRateLimitMiddleware = async (
+export const appRateLimitMiddleware = asyncHandler( async (
   req: Request,
   res: Response,
   next: NextFunction,
@@ -86,4 +87,4 @@ export const appRateLimitMiddleware = async (
   }
 
   next();
-};
+});
