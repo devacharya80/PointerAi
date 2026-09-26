@@ -1,18 +1,19 @@
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/AppError.js";
-import { generateAiResponse } from "../ai/ai.service.js";
 import type { ChatMessage } from "../ai/ai.types.js";
 import { generateTitle } from "./utils/auto.title.generation.js";
 import { createConversation } from "./conversation.service.js";
 import { shouldSearchWeb } from "./utils/search-classifier.js";
 import { searchWeb } from "./providers/tavily.provider.js";
-import {classifyForClarification} from "./utils/clarification-classifier.js"
+import { classifyForClarification } from "./utils/clarification-classifier.js";
+import type {ReadyToStreamResult, ClarificationResult} from "./types/send.message.js"
+import type {WebSearchResult} from "./types/web.search.js"
 
 export const sendMessage = async (
   userId: string,
   conversationId: string | undefined,
   content: string,
-) => {
+): Promise<ReadyToStreamResult|ClarificationResult> => {
   let activeConversationId: string;
 
   // 1. Get existing conversation or create a new one
@@ -75,29 +76,30 @@ export const sendMessage = async (
   // 17 Needs clarification save ai msg and return with the clarificarion msgs
   const profile = await prisma.profile.findUnique({ where: { userId } });
 
-const clarification = await classifyForClarification(
-  mappedHistory,
-  content,  // the original user message string, not userMessage.content
-  profile
-);
+  const clarification = await classifyForClarification(
+    mappedHistory,
+    content, // the original user message string, not userMessage.content
+    profile,
+  );
 
-if (clarification.needsClarification && clarification.question) {
-  const clarificationMessage = await prisma.message.create({
-    data: {
+  if (clarification.needsClarification && clarification.question) {
+    const clarificationMessage = await prisma.message.create({
+      data: {
+        conversationId: activeConversationId,
+        role: "ASSISTANT",
+        type: "CLARIFICATION_QUESTION",
+        content: clarification.question,
+        options: clarification.options ?? [],
+      },
+    });
+
+    return {
+      type: "clarification",
       conversationId: activeConversationId,
-      role: "ASSISTANT",
-      type: "CLARIFICATION_QUESTION",
-      content: clarification.question,
-      options: clarification.options ?? [],
-    },
-  });
-
-  return {
-    conversationId: activeConversationId,
-    userMessage,
-    aiMessage: clarificationMessage,
-  };
-}
+      userMessage,
+      aiMessage: clarificationMessage,
+    };
+  }
 
   // 7. Check whether web search is needed
   // Exclude current message from history because
@@ -121,27 +123,25 @@ if (clarification.needsClarification && clarification.question) {
     const webContext = webResults
       .map(
         (result, index) => `
-SOURCE ${index + 1}
+          SOURCE ${index + 1}
 
-Title: ${result.title}
-URL: ${result.url}
-Content: ${result.content}
-`,
+          Title: ${result.title}
+          URL: ${result.url}
+          Content: ${result.content}`,
       )
       .join("\n");
 
     systemContent += `
 
-You have access to the following web search results.
+      You have access to the following web search results.
 
-Use these sources to answer the user's question.
-Do not invent information that is not supported by the sources.
-Prefer information from the provided sources when answering questions that require current information.
+      Use these sources to answer the user's question.
+      Do not invent information that is not supported by the sources.
+      Prefer information from the provided sources when answering questions that require current information.
 
-WEB SEARCH RESULTS:
+      WEB SEARCH RESULTS:
 
-${webContext}
-`;
+      ${webContext}`;
   }
 
   // 11. Final messages sent to AI
@@ -153,21 +153,30 @@ ${webContext}
     ...mappedHistory,
   ];
 
-  // 12. Generate AI response
-  const aiResponse = await generateAiResponse(messages);
+  return {
+  type: "ready_to_stream",
+  conversationId: activeConversationId,
+  userMessage,
+  messages,
+  webResults,
+};
+};
 
-  // 13. Save assistant message + sources
+export const saveStreamedResponse = async (
+  conversationId: string,
+  fullResponse: string,
+  webResults: WebSearchResult[]
+) => {
   return await prisma.$transaction(async (tx) => {
     const aiMessage = await tx.message.create({
       data: {
-        conversationId: activeConversationId,
+        conversationId,
         role: "ASSISTANT",
-        content: aiResponse.message,
+        content: fullResponse,
       },
     });
 
-    // 14. Save web sources
-    if (needsWebSearch && webResults.length > 0) {
+    if (webResults.length > 0) {
       await tx.source.createMany({
         data: webResults.map((result) => ({
           messageId: aiMessage.id,
@@ -179,21 +188,11 @@ ${webContext}
       });
     }
 
-    // 15. Update conversation timestamp
     await tx.conversation.update({
-      where: {
-        id: activeConversationId,
-      },
-      data: {
-        updatedAt: new Date(),
-      },
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
     });
 
-    // 16. Return response
-    return {
-      conversationId: activeConversationId,
-      userMessage,
-      aiMessage,
-    };
+    return aiMessage;
   });
 };

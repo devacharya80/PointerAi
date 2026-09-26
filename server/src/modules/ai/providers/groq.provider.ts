@@ -35,3 +35,16 @@ export const getGroqChatCompletion = async (
 
 // getGroqChatCompletion({role:"user",content:"hi"})
 // model: "openai/gpt-oss-20b"
+
+export const getGroqChatCompletionStream = async (
+  messages: ChatMessage[],
+  model: string = "openai/gpt-oss-20b"
+) => {
+  const stream = await client.chat.completions.create({
+    messages,
+    model,
+    stream: true,
+  });
+
+  return stream;
+};
