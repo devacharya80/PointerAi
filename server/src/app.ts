@@ -14,6 +14,7 @@ import conversationRoute from "./modules/conversations/conversation.routes.js"
 import "./modules/auth/passport.config.js";
 import { appRateLimitMiddleware } from "./middleware/rateLimit.middleware.js";
 import profileRoute from "./modules/profile/profile.route.js"
+import userRoute from "./modules/user/user.route.js";
 
 export const app = express();
 
@@ -37,6 +38,7 @@ app.get("/health",(req:Request,res: Response) => {
 })
 app.use(passport.initialize());
 
+app.use("/api/user",userRoute)
 app.use("/api/auth",authRoute)
 app.use("/api/conversations",conversationRoute)
 app.use("/api/profile",profileRoute)
