@@ -14,3 +14,9 @@ export interface AiResponse {
     totalTokens: number;
   };
 }
+
+export type GenerateAiResponseOptions = {
+    responseFormat : { 
+        type : 'json_object'
+    }
+}

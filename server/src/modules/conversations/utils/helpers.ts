@@ -1,4 +1,4 @@
-import type { WebSearchResult } from "../types/web.search.type.js";
+import type { WebSearchResult } from "../types/web.search.js";
 
 export const mapWebSearch = (
   data: WebSearchResult[],

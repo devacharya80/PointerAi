@@ -1,6 +1,6 @@
 import { tavily } from "@tavily/core";
 import { mapWebSearch } from "../utils/helpers.js";
-import type { WebSearchResult } from "../types/web.search.type.js";
+import type { WebSearchResult } from "../types/web.search.js";
 
 const tvly = tavily({
   apiKey: process.env.TAVILY_API_KEY,

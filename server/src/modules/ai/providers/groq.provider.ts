@@ -1,6 +1,6 @@
 import "dotenv/config";
 import Groq from "groq-sdk";
-import type { ChatMessage, AiResponse } from "../ai.types.js";
+import type { ChatMessage, AiResponse, GenerateAiResponseOptions } from "../ai.types.js";
 import { AppError } from "../../../lib/AppError.js";
 
 const client = new Groq({
@@ -9,11 +9,13 @@ const client = new Groq({
 
 export const getGroqChatCompletion = async (
   messages: ChatMessage[],
-  model : string = "openai/gpt-oss-20b"
+  model : string = "openai/gpt-oss-20b",
+  options? : GenerateAiResponseOptions
 ): Promise<AiResponse> => {
   const chatCompletion = await client.chat.completions.create({
     messages,
     model: model,
+    response_format: options?.responseFormat
   });
   const responseMessage = chatCompletion.choices[0]?.message?.content;
   if (!responseMessage) {

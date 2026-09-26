@@ -96,6 +96,8 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   role MessageRole
+  type MessageType @default(NORMAL)
+  options String[]
   content String
 
   source Source[]
@@ -106,6 +108,11 @@ model Message {
 enum MessageRole {
   USER
   ASSISTANT
+}
+
+enum MessageType {
+  NORMAL
+  CLARIFICATION_QUESTION
 }
 
 model RefreshToken {

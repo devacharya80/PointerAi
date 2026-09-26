@@ -6,6 +6,7 @@ import { generateTitle } from "./utils/auto.title.generation.js";
 import { createConversation } from "./conversation.service.js";
 import { shouldSearchWeb } from "./utils/search-classifier.js";
 import { searchWeb } from "./providers/tavily.provider.js";
+import {classifyForClarification} from "./utils/clarification-classifier.js"
 
 export const sendMessage = async (
   userId: string,
@@ -70,6 +71,33 @@ export const sendMessage = async (
     role: chat.role === "USER" ? "user" : "assistant",
     content: chat.content,
   }));
+
+  // 17 Needs clarification save ai msg and return with the clarificarion msgs
+  const profile = await prisma.profile.findUnique({ where: { userId } });
+
+const clarification = await classifyForClarification(
+  mappedHistory,
+  content,  // the original user message string, not userMessage.content
+  profile
+);
+
+if (clarification.needsClarification && clarification.question) {
+  const clarificationMessage = await prisma.message.create({
+    data: {
+      conversationId: activeConversationId,
+      role: "ASSISTANT",
+      type: "CLARIFICATION_QUESTION",
+      content: clarification.question,
+      options: clarification.options ?? [],
+    },
+  });
+
+  return {
+    conversationId: activeConversationId,
+    userMessage,
+    aiMessage: clarificationMessage,
+  };
+}
 
   // 7. Check whether web search is needed
   // Exclude current message from history because
