@@ -1,26 +1,44 @@
 import type { Request, Response } from "express";
+
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { getUserId } from "../../lib/getUserId.js";
-import { updateProfile } from "./profile.service.js";
-import {profileSchema} from "./profile.schema.js"
 
-export const profileController = asyncHandler(
+import {
+  updateProfile,
+  getProfile,
+} from "./profile.service.js";
+
+import { profileSchema } from "./profile.schema.js";
+
+
+export const updateProfileController = asyncHandler(
   async (req: Request, res: Response) => {
-    const userId: string = getUserId(req);
-    const validatedProfile = profileSchema.safeParse(req.body);
+    const userId = getUserId(req);
 
-    if (!validatedProfile.success) {
-      return res.status(400).json({
-        error: validatedProfile.error,
-      });
-    }
+    const validatedProfile = profileSchema.parse(req.body);
 
-    const updatedProfile = await updateProfile(userId, {
-      ...validatedProfile.data,
-      academicField: validatedProfile.data.academicField ?? null,
-      currentLevel: validatedProfile.data.currentLevel ?? null,
+    const updatedProfile = await updateProfile(
+      userId,
+      validatedProfile
+    );
+
+    return res.status(200).json({
+      message: "Profile updated",
+      data: updatedProfile,
     });
-
-    return res.status(200).json(updatedProfile);
   },
+);
+
+
+export const getProfileController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    const profile = await getProfile(userId);
+
+    return res.status(200).json({
+      message: "Profile fetched",
+      data: profile,
+    });
+  }
 );
