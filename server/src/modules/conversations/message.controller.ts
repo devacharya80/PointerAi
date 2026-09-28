@@ -11,12 +11,9 @@ export const sendMessageController = asyncHandler(async (req: Request, res: Resp
     ? req.params.conversationId
     : undefined;
 
-  const validatedContent = contentSchema.safeParse(req.body);
-  if (!validatedContent.success) {
-    return res.status(400).json({ error: validatedContent.error });
-  }
+  const validatedContent = contentSchema.parse(req.body);
 
-  const result = await sendMessage(userId, conversationId, validatedContent.data.content);
+  const result = await sendMessage(userId, conversationId, validatedContent.content);
 
   if (result.type === "clarification") {
     return res.status(201).json({ data: result });
@@ -31,11 +28,15 @@ export const sendMessageController = asyncHandler(async (req: Request, res: Resp
   let clientDisconnected = false;
 
   const handleDisconnect = () => {
+    if (res.writableFinished) return;
+
     clientDisconnected = true;
-    if (!abortController.signal.aborted) abortController.abort();
+
+    if (!abortController.signal.aborted) {
+      abortController.abort();
+    }
   };
 
-  req.once("aborted", handleDisconnect);
   res.once("close", handleDisconnect);
 
   try {
@@ -75,7 +76,6 @@ export const sendMessageController = asyncHandler(async (req: Request, res: Resp
       res.end();
     }
   } finally {
-    req.off("aborted", handleDisconnect);
     res.off("close", handleDisconnect);
   }
 });
