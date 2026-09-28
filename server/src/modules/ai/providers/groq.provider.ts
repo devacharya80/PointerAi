@@ -37,10 +37,14 @@ export const getGroqChatCompletionStream = async (
   model: string = "openai/gpt-oss-20b",
   signal?: AbortSignal,
 ) => {
-  return client.chat.completions.create({
-    messages,
-    model,
-    stream: true,
-    signal,
-  });
+  return client.chat.completions.create(
+    {
+      messages,
+      model,
+      stream: true,
+    },
+    {
+      signal,
+    },
+  );
 };
