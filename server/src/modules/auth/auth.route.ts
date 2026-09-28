@@ -10,8 +10,6 @@ import {
   googleCallbackController,
 } from "./auth.controller.js";
 
-import { validateUser } from "../../middleware/auth.middleware.js";
-
 import { authRateLimitMiddleware } from "../../middleware/rateLimit.middleware.js";
 
 authRoute.post("/register", authRateLimitMiddleware, registerController);
@@ -36,9 +34,5 @@ authRoute.get(
   }),
   googleCallbackController,
 );
-
-authRoute.get("/me", validateUser, (req, res) => {
-  res.status(200).json({ user: req.user });
-});
 
 export default authRoute;

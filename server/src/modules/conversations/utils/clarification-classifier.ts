@@ -1,6 +1,6 @@
 import type { ChatMessage } from "../../ai/ai.types.js";
 import type { Clarifier } from "../types/need.carifier.js";
-import type { Profile } from "../../profile/profile.type.js";
+import type { Profile } from "../../../generated/prisma/client.js";
 import { generateAiResponse } from "../../ai/ai.service.js";
 
 export const classifyForClarification = async (
