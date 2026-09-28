@@ -5,14 +5,15 @@ import type { GenerateAiResponseOptions } from "./ai.types.js";
 export const generateAiResponse = async (
   messages: ChatMessage[],
   model?: string,
-  options? : GenerateAiResponseOptions
+  options?: GenerateAiResponseOptions,
 ): Promise<AiResponse> => {
   return getGroqChatCompletion(messages, model, options);
 };
 
 export const generateAiResponseStream = async (
   messages: ChatMessage[],
-  model?: string
+  model?: string,
+  signal?: AbortSignal,
 ) => {
-  return getGroqChatCompletionStream(messages, model);
+  return getGroqChatCompletionStream(messages, model, signal);
 };
