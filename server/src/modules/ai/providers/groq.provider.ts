@@ -4,23 +4,22 @@ import type { ChatMessage, AiResponse, GenerateAiResponseOptions } from "../ai.t
 import { AppError } from "../../../lib/AppError.js";
 
 const client = new Groq({
-  apiKey: process.env.GROQ_API_KEY, // This is the default and can be omitted
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 export const getGroqChatCompletion = async (
   messages: ChatMessage[],
-  model : string = "openai/gpt-oss-20b",
-  options? : GenerateAiResponseOptions
+  model: string = "openai/gpt-oss-20b",
+  options?: GenerateAiResponseOptions
 ): Promise<AiResponse> => {
   const chatCompletion = await client.chat.completions.create({
     messages,
-    model: model,
-    response_format: options?.responseFormat
+    model,
+    response_format: options?.responseFormat,
   });
+
   const responseMessage = chatCompletion.choices[0]?.message?.content;
-  if (!responseMessage) {
-    throw new AppError("No response from Groq",500);
-  }
+  if (!responseMessage) throw new AppError("No response from Groq", 500);
 
   return {
     message: responseMessage,
@@ -33,18 +32,15 @@ export const getGroqChatCompletion = async (
   };
 };
 
-// getGroqChatCompletion({role:"user",content:"hi"})
-// model: "openai/gpt-oss-20b"
-
 export const getGroqChatCompletionStream = async (
   messages: ChatMessage[],
-  model: string = "openai/gpt-oss-20b"
+  model: string = "openai/gpt-oss-20b",
+  signal?: AbortSignal,
 ) => {
-  const stream = await client.chat.completions.create({
+  return client.chat.completions.create({
     messages,
     model,
     stream: true,
+    signal,
   });
-
-  return stream;
 };
