@@ -9,6 +9,9 @@ import { classifyForClarification } from "./utils/clarification-classifier.js";
 import type {ReadyToStreamResult, ClarificationResult} from "./types/send.message.js"
 import type {WebSearchResult} from "./types/web.search.js"
 import {buildProfileInstruction} from "./utils/profile.instruction.js"
+import { findEligibleConversations } from "./utils/eligible-facts.js"; // or wherever you put it
+import { extractFactsFromConversation } from "./utils/extract.facts.js";
+import {buildFactsInstruction} from "./utils/facts.instruction.js"
 
 export const sendMessage = async (
   userId: string,
@@ -76,6 +79,7 @@ export const sendMessage = async (
 
   // 17 Needs clarification save ai msg and return with the clarificarion msgs
   const profile = await prisma.profile.findUnique({ where: { userId } });
+  const facts = await prisma.fact.findMany({ where: { userId } });
 
   const clarification = await classifyForClarification(
     mappedHistory,
@@ -104,6 +108,19 @@ export const sendMessage = async (
   }
   
   const profileInstructions = buildProfileInstruction(profile);
+  const factsInstructions = buildFactsInstruction(facts);
+
+  findEligibleConversations(userId, activeConversationId)
+  .then((eligible) => {
+    for (const conversation of eligible) {
+      extractFactsFromConversation(conversation.id, userId).catch((err) => {
+        console.error("Fact extraction failed:", err);
+      });
+    }
+  })
+  .catch((err) => {
+    console.error("Eligibility check failed:", err);
+  });
 
   // 7. Check whether web search is needed
   // Exclude current message from history because
@@ -121,7 +138,8 @@ export const sendMessage = async (
 
   // 9. Build system prompt
   let systemContent = "You are a helpful learning assistant.";
-  systemContent += profileInstructions;
+systemContent += profileInstructions;
+systemContent += factsInstructions;
 
   // 10. Add web search context to system prompt
   if (needsWebSearch && webResults.length > 0) {
@@ -199,5 +217,9 @@ export const saveStreamedResponse = async (
     });
 
     return aiMessage;
-  });
+  },
+  {
+    timeout : 15000
+  }
+  );
 };

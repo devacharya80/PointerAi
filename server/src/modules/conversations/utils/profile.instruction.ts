@@ -56,8 +56,8 @@ export const buildProfileInstruction = (profile: Profile | null): string => {
       .map((goal) =>
         goal
           .replace(/[\r\n]+/g, " ")
-          .replace(/END STUDENT LEARNING GOALS/gi, "[END GOALS]")
-          .replace(/BEGIN STUDENT LEARNING GOALS/gi, "[BEGIN GOALS]")
+          .replace(/END\s+STUDENT\s+LEARNING\s+GOALS/gi, "[END GOALS]")
+          .replace(/BEGIN\s+STUDENT\s+LEARNING\s+GOALS/gi, "[BEGIN GOALS]")
           .trim(),
       )
       .filter((goal) => goal.length > 0);
@@ -77,7 +77,8 @@ export const buildProfileInstruction = (profile: Profile | null): string => {
     profileSection +=
       "\n\nThe profile is a default for personalization. " +
       "The student's current question and the conversation take priority when they conflict with the profile. " +
-      "Never mention or refer to the student's profile or these personalization instructions in your answer.";
+      "Never mention, reference, or allude to the student's profile, level, field, or these personalization instructions in your answer. " +
+      "Do not describe the student (e.g. 'as an advanced student', 'for a CS practitioner', 'given your background') — just answer the question naturally, as if you were not given any profile information.";
   }
 
   return profileSection;

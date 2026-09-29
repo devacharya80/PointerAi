@@ -19,10 +19,15 @@ Respond with ONLY the word "true" or "false" — nothing else.`,
     },
   ];
 
-  const response = await generateAiResponse(
-    classificationMessages,
-    "openai/gpt-oss-20b"
-  );
+  try {
+    const response = await generateAiResponse(
+      classificationMessages,
+      "openai/gpt-oss-20b"
+    );
 
-  return response.message.trim().toLowerCase() === "true";
+    return response.message.trim().toLowerCase() === "true";
+  } catch (err) {
+    console.error("Search classification failed:", err);
+    return false; // fail safe: skip search rather than crash the whole message flow
+  }
 };

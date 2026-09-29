@@ -55,13 +55,14 @@ export const sendMessageController = asyncHandler(async (req: Request, res: Resp
       }
     }
     if (clientDisconnected || abortController.signal.aborted) return;
-
+    
     const savedMessage = await saveStreamedResponse(
       result.conversationId,
       fullResponse,
       result.webResults,
     );
-
+    console.log(fullResponse)
+    
     if (!res.writableEnded && !res.destroyed) {
       res.write(`data: ${JSON.stringify({ done: true, messageId: savedMessage.id })}\n\n`);
       res.end();

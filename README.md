@@ -9,56 +9,60 @@ An adaptive AI learning workspace built for students across disciplines.
 PointerAI is a personalized AI learning platform designed to help students learn,
 understand, and practice subjects across different academic fields. Instead of
 generating the same response for everyone, PointerAI uses a student's learning
-level, goals, preferences, and interaction history to provide more relevant and
-targeted learning experiences.
+level, goals, preferences, stored learning history, and interaction context to
+provide more relevant and targeted learning explanations.
 
 The platform combines conversational AI, adaptive questioning, intelligent web
-search, and a personalized learning profile into a single student-focused workspace.
+search, streaming responses, and a personalized learning profile into a single
+student-focused workspace.
 
 ---
 
 ## Features
 
-### Current MVP
-
 - 🔐 **Authentication & Authorization**
   - Secure registration and login (email/password + Google OAuth)
+  - JWT access + refresh token flow with revocable sessions
   - Session management with HTTP-only cookies
   - Protected routes and user-specific data isolation
 
 - 💬 **AI Conversations**
   - Persistent conversations with history
-  - Streaming AI responses
-  - Markdown and code block rendering
-  - Create, rename, and delete conversations
+  - Real-time streaming AI responses (Server-Sent Events)
+  - Sliding-window context management
+  - Auto-generated conversation titles
+  - Create, list, and delete conversations
 
 - 🧠 **Adaptive AI Questioning**
-  - Gathers student context before answering when needed
-  - Determines knowledge level (beginner / intermediate / advanced)
-  - Understands learning goal (exam, interview, deep understanding)
-  - Adapts explanation style to student preferences
-  - Avoids unnecessary questions when sufficient context already exists
+  - Detects genuinely ambiguous questions and asks a single clarifying question
+    before answering, with clickable multiple-choice options when applicable
+  - Skips clarification when the question is already clear
+  - Uses the student's stored profile only as a hint, never as a hard rule
 
 - 👤 **Personalized Learning Profile**
-  - Academic field and subjects
-  - Learning goals and knowledge level
-  - Preferred explanation depth and response style
-  - Personalization improves with every interaction
+  - Academic field, current level, and preferred explanation depth
+  - Learning goals
+  - Personalization shapes the AI's system prompt directly — depth, level, and
+    field all change how answers are written, without ever exposing the
+    profile back to the student in the response
+
+- 🧩 **Cross-Conversation Memory**
+  - Extracts durable, factual context about the student (e.g. goals, weak
+    areas, recurring topics) from conversations once they've gone quiet
+  - Facts are deduplicated on extraction and capped per student
+  - Reused across future conversations to personalize answers without the
+    student repeating themselves
 
 - 🌐 **Intelligent Web Search**
-  - Automatically decides when current information is required
-  - Grounds AI responses using relevant, up-to-date sources
-  - Displays source citations to the user
-  - Avoids hallucination on time-sensitive questions
+  - AI-based classifier decides when a question needs current information
+  - Grounds AI responses using real, ranked web sources (Tavily)
+  - Displays source citations tied to each AI response
+  - Falls back safely to the model's own knowledge if search fails
 
-### Planned
-
-- 📄 Document upload and RAG (Retrieval-Augmented Generation)
-- 🖼️ Image understanding for diagrams, notes, and problems
-- 🎓 Learning modes (Quiz, Flashcards, Study, Practice, Summarize)
-- 📊 Personal learning space with progress and recommendations
-- 📧 Email notifications
-- 💬 Real-time collaborative study rooms (WebSockets)
+- ⚡ **Rate Limiting & Performance**
+  - Redis-backed sliding-window rate limiting (Upstash)
+  - Separate limiters for auth, AI, and general API traffic
+  - Streaming responses abort the upstream AI call on client disconnect
 
 ---
 
@@ -70,18 +74,18 @@ search, and a personalized learning profile into a single student-focused worksp
 - TanStack Query
 
 ### Backend
-- Node.js, Express, TypeScript
-- PostgreSQL, Prisma ORM
-- Zod, Redis
+- Node.js, Express, TypeScript (ESM)
+- PostgreSQL (Neon), Prisma ORM
+- Zod, Redis (Upstash)
 
 ### AI
 - Groq API (provider-agnostic abstraction layer)
-- Context engineering and adaptive prompting
-- Intelligent web search integration
+- Context engineering: sliding window history, profile-aware prompting,
+  cross-conversation fact memory
+- Intelligent web search integration (Tavily)
 
 ### Infrastructure
-- Docker, Docker Compose
-- GitHub Actions (CI/CD)
+- GitHub Actions (CI/CD, planned)
 - Cloud deployment (planned)
 
 ---
@@ -95,22 +99,23 @@ Frontend (React)
       │
       ▼
 API Gateway (Express)
-Auth · Rate Limiting · Logging
+Auth · Rate Limiting · Logging · CORS · Helmet
       │
-      ├── Auth Module
-      ├── User / Profile Module
-      ├── Conversation Module
-      └── AI Module
+      ├── Auth Module (email/password + Google OAuth)
+      ├── User Module
+      ├── Profile Module
+      └── Conversation Module
             │
             ├── Personalization Layer
-            │     └── Context Builder
+            │     ├── Profile-aware prompt builder
+            │     └── Cross-conversation fact memory
             ├── AI Service (abstracted)
             │     └── Groq Provider
-            └── Search Service
+            └── Search Service (Tavily)
 
 Data Layer
 ├── PostgreSQL (Prisma) — persistent data
-└── Redis — rate limiting, caching
+└── Redis (Upstash) — rate limiting
 ```
 
 ### Backend Module Structure
@@ -122,12 +127,13 @@ src/
 ├── modules/
 │   ├── auth/
 │   ├── users/
+│   ├── profile/
 │   ├── conversations/
-│   ├── messages/
-│   ├── ai/
-│   ├── personalization/
-│   ├── search/
-│   └── common/
+│   │   ├── providers/       # Tavily
+│   │   ├── utils/           # classifiers, fact extraction, prompt builders
+│   │   └── types/
+│   └── ai/
+│       └── providers/       # Groq
 ├── lib/
 ├── app.ts
 └── server.ts
@@ -141,27 +147,60 @@ src/
 
 PointerAI is built around the idea that personalization is not a feature, it is
 the foundation. Every response is shaped by who the student is, what they are
-trying to achieve, and how they learn best.
+trying to achieve, and how they learn best — without ever making that scaffolding
+visible in the conversation itself.
 
 ---
 
 ## Getting Started
 
-Coming soon.
+### Prerequisites
+- Node.js 20+
+- A PostgreSQL database (this project uses [Neon](https://neon.tech))
+- Accounts/API keys for: [Groq](https://console.groq.com), [Tavily](https://tavily.com), [Upstash Redis](https://upstash.com), and a [Google OAuth](https://console.cloud.google.com) client
+
+### 1. Clone and install
+```bash
+git clone https://github.com/devacharya80/PointerAi.git
+cd PointerAi/server
+npm install
+```
+
+### 2. Configure environment variables
+Copy `.env.example` to `.env` and fill in your own values:
+```bash
+cp .env.example .env
+```
+
+### 3. Set up the database
+```bash
+npx prisma migrate dev
+npx prisma generate
+```
+
+### 4. Run the server
+```bash
+npm run dev
+```
+
+The API will be available at `http://localhost:3000`. Check `GET /health` to
+confirm it's running.
 
 ---
 
 ## Roadmap
 
 - [x] Phase 0 — Product & Architecture
-- [ ] Phase 1 — Project Foundation
-- [ ] Phase 2 — Authentication (Email + OAuth)
-- [ ] Phase 3 — AI Chat with Streaming
-- [ ] Phase 4 — Personalization & Adaptive Questioning
-- [ ] Phase 5 — Intelligent Web Search
-- [ ] Phase 6 — Production Engineering (Redis, Rate Limiting, Docker, CI/CD)
-- [ ] Phase 7 — Documents, Images, Learning Modes
-- [ ] Phase 8 — UX & Product Polish
+- [x] Phase 1 — Project Foundation
+- [x] Phase 2 — Authentication (Email + Google OAuth)
+- [x] Phase 3 — AI Chat with Streaming
+- [x] Phase 4 — Personalization, Adaptive Questioning & Cross-Conversation Memory
+- [x] Phase 5 — Intelligent Web Search
+- [x] Rate Limiting + Redis
+- [ ] Phase 6 — Frontend
+- [ ] Phase 7 — V2: Real-time collaborative study chat, notifications, email
+- [ ] Phase 8 — Documents/RAG, image understanding, learning modes (quiz, flashcards)
+- [ ] Phase 9 — Production Engineering (Docker, CI/CD, deployment, testing)
 
 ---
 
