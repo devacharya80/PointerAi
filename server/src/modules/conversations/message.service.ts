@@ -8,6 +8,7 @@ import { searchWeb } from "./providers/tavily.provider.js";
 import { classifyForClarification } from "./utils/clarification-classifier.js";
 import type {ReadyToStreamResult, ClarificationResult} from "./types/send.message.js"
 import type {WebSearchResult} from "./types/web.search.js"
+import {buildProfileInstruction} from "./utils/profile.instruction.js"
 
 export const sendMessage = async (
   userId: string,
@@ -81,7 +82,7 @@ export const sendMessage = async (
     content, // the original user message string, not userMessage.content
     profile,
   );
-
+  
   if (clarification.needsClarification && clarification.question) {
     const clarificationMessage = await prisma.message.create({
       data: {
@@ -92,7 +93,8 @@ export const sendMessage = async (
         options: clarification.options ?? [],
       },
     });
-
+    
+    
     return {
       type: "clarification",
       conversationId: activeConversationId,
@@ -100,6 +102,8 @@ export const sendMessage = async (
       aiMessage: clarificationMessage,
     };
   }
+  
+  const profileInstructions = buildProfileInstruction(profile);
 
   // 7. Check whether web search is needed
   // Exclude current message from history because
@@ -117,6 +121,7 @@ export const sendMessage = async (
 
   // 9. Build system prompt
   let systemContent = "You are a helpful learning assistant.";
+  systemContent += profileInstructions;
 
   // 10. Add web search context to system prompt
   if (needsWebSearch && webResults.length > 0) {

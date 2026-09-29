@@ -52,10 +52,8 @@ export const sendMessageController = asyncHandler(async (req: Request, res: Resp
       fullResponse += text;
       if (!res.writableEnded && !res.destroyed) {
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        // console.log(`data: ${JSON.stringify({ text })}`)
       }
     }
-
     if (clientDisconnected || abortController.signal.aborted) return;
 
     const savedMessage = await saveStreamedResponse(
