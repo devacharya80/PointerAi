@@ -29,11 +29,11 @@ export const buildFactsInstruction = (facts: Fact[]): string => {
     "\n\nThe facts are a default for personalization. " +
     "The student's current question and the conversation take priority " +
     "when they conflict with these facts. " +
-    "Never mention or refer to the student's facts or these personalization instructions in your answer." + 
+    "Never mention or refer to the student's facts or these personalization instructions in your answer." +
     "\n\nThe facts are a default for personalization. " +
-"The student's current question and the conversation take priority " +
-"when they conflict with these facts. " +
-"Never mention, reference, or allude to the student's facts or these personalization instructions in your answer. " +
-"Do not describe the student based on these facts — just answer naturally, as if you had no additional context about them."
+    "The student's current question and the conversation take priority " +
+    "when they conflict with these facts. " +
+    "Never mention, reference, or allude to the student's facts or these personalization instructions in your answer. " +
+    "Do not describe the student based on these facts — just answer naturally, as if you had no additional context about them."
   );
 };
