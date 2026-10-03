@@ -21,13 +21,3 @@ export const getRefreshPromise = () => refreshPromise;
 export const setRefreshPromise = (promise: Promise<string> | null) => {
   refreshPromise = promise;
 };
-
-// let promise = getRefreshPromise();
-
-// if (!promise) {
-//     promise = refreshAccessToken();
-
-//     setRefreshPromise(promise);
-// }
-
-// const newToken = await promise;
