@@ -63,9 +63,9 @@ export const refreshController = asyncHandler(async(req: Request, res: Response)
     throw new AppError("No refresh token provided", 401)
   }
 
-  const accessToken: string = await refreshAccessToken(refreshToken);
+  const {accessToken, user} = await refreshAccessToken(refreshToken);
 
-  return res.status(200).json({ accessToken });
+  return res.status(200).json({ accessToken,user });
 })
 
 export const logoutController = asyncHandler(async (req: Request, res: Response) => {

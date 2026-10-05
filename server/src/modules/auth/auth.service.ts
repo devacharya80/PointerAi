@@ -109,6 +109,8 @@ export const refreshAccessToken = async (token: string) => {
       user : {
         select : {
           id : true,
+          firstName: true,
+          lastName: true,
           email : true
         }
       }
@@ -129,10 +131,13 @@ export const refreshAccessToken = async (token: string) => {
   }
 
   // 6. Generate a new access token
-  return generateAccessToken({
+  return {
+    accessToken : generateAccessToken({
     userId: refreshToken.user.id,
     email: refreshToken.user.email,
-  });
+  }),
+  user: refreshToken.user
+  }
 };
 
 
