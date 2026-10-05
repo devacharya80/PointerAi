@@ -11,7 +11,7 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Attach access token to every request
+// Attach access token to requests
 api.interceptors.request.use((config) => {
   const accessToken = getAccessToken();
 
@@ -29,43 +29,78 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      let refreshPromise = getRefreshPromise();
-
-      // No refresh currently happening
-      if (!refreshPromise) {
-        refreshPromise = (async () => {
-          try {
-            const res = await api.post("/auth/refresh");
-
-            const newToken = res.data.accessToken;
-
-            setAccessToken(newToken);
-
-            return newToken;
-          } catch (err) {
-            setAccessToken(null);
-            throw err;
-          } finally {
-            setRefreshPromise(null);
-          }
-        })();
-
-        setRefreshPromise(refreshPromise);
-      }
-
-      try {
-        const newToken = await refreshPromise;
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Rename to be clear it's refresh failure
-        return Promise.reject(refreshError);
-      }
+    /*
+     * IMPORTANT:
+     *
+     * Never try to refresh the refresh request itself.
+     *
+     * Otherwise:
+     *
+     * /auth/refresh -> 401
+     *       ↓
+     * interceptor
+     *       ↓
+     * /auth/refresh
+     *       ↓
+     * 401
+     *       ↓
+     * infinite loop
+     */
+    if (originalRequest?.url?.includes("/auth/refresh")) {
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    /*
+     * Only handle 401 responses.
+     */
+    if (
+      error.response?.status !== 401 ||
+      originalRequest?._retry
+    ) {
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+
+    let refreshPromise = getRefreshPromise();
+
+    /*
+     * If another request is already refreshing,
+     * wait for that same refresh request.
+     */
+    if (!refreshPromise) {
+      refreshPromise = (async () => {
+        try {
+          const response = await api.post("/auth/refresh");
+
+          const newAccessToken = response.data.accessToken;
+
+          setAccessToken(newAccessToken);
+
+          return newAccessToken;
+        } catch (refreshError) {
+          setAccessToken(null);
+
+          throw refreshError;
+        } finally {
+          setRefreshPromise(null);
+        }
+      })();
+
+      setRefreshPromise(refreshPromise);
+    }
+
+    try {
+      const newAccessToken = await refreshPromise;
+
+      originalRequest.headers = originalRequest.headers ?? {};
+
+      originalRequest.headers.Authorization =
+        `Bearer ${newAccessToken}`;
+
+      return api(originalRequest);
+    } catch (refreshError) {
+      return Promise.reject(refreshError);
+    }
   },
 );

@@ -2,6 +2,7 @@ import { api } from "./axios";
 
 export interface AuthResponse {
   accessToken: string;
+
   user: {
     id: string;
     firstName: string;
@@ -22,25 +23,39 @@ export interface RegisterPayload {
   password: string;
 }
 
-// Login with email + password
-export const loginUser = async (email: string, password: string): Promise<AuthResponse> => {
-  const response = await api.post("/auth/login", { email, password });
+// Email + password login
+export const loginUser = async (
+  email: string,
+  password: string,
+): Promise<AuthResponse> => {
+  const response = await api.post("/auth/login", {
+    email,
+    password,
+  });
+
   return response.data;
 };
 
-// Register new user
-export const registerUser = async (payload: RegisterPayload): Promise<AuthResponse> => {
-  const response = await api.post("/auth/register", payload);
+// Register
+export const registerUser = async (
+  payload: RegisterPayload,
+): Promise<AuthResponse> => {
+  const response = await api.post(
+    "/auth/register",
+    payload,
+  );
+
   return response.data;
 };
 
-// Refresh access token using httpOnly cookie
+// Refresh access token using httpOnly refresh cookie
 export const refreshUser = async (): Promise<AuthResponse> => {
   const response = await api.post("/auth/refresh");
+
   return response.data;
 };
 
-// Logout (clears refresh token on backend)
+// Logout
 export const logoutUser = async (): Promise<void> => {
   await api.post("/auth/logout");
 };

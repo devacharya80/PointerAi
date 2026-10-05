@@ -1,30 +1,46 @@
 import { type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+
 import { useAuth } from "../context/AuthContext";
+import LoadingOverlay from "../components/LoadingOverlay";
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth();
+export default function ProtectedRoute({
+  children,
+}: ProtectedRouteProps) {
+  const {
+    user,
+    isLoading,
+  } = useAuth();
 
-  // While checking auth status
+  /*
+   * AuthProvider is checking the refresh cookie.
+   */
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-950">
-        <div className="text-center">
-          <div className="text-slate-100 text-lg font-medium">Loading...</div>
-        </div>
-      </div>
+      <LoadingOverlay
+        message="Checking your session..."
+      />
     );
   }
 
-  // User not authenticated
+  /*
+   * No authenticated user.
+   */
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
   }
 
-  // User authenticated, render protected content
+  /*
+   * Authenticated.
+   */
   return <>{children}</>;
 }
