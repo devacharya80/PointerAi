@@ -5,8 +5,8 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { api } from "../api/axios";
 import { setAccessToken } from "../api/token-store";
+import { refreshUser } from "../api/auth";
 
 interface User {
   id: string;
@@ -30,47 +30,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-//  useEffect(() => {
-//   const refreshToken = async () => {
-//     try {
-//       const response = await api.post("/auth/refresh");
-//       console.log("✓ Silent refresh succeeded:", response.data.user);
-//       setAccessToken(response.data.accessToken);
-//       setUser(response.data.user);
-//     } catch (err) {
-//       console.error("✗ Silent refresh failed:", err);
-//       setAccessToken(null);
-//       setUser(null);
-//     } finally {
-//       setIsLoading(false);
-//     }
-//   };
-//   refreshToken();
-// }, []);
+  // Silent refresh on mount
+  useEffect(() => {
+    const performRefresh = async () => {
+      try {
+        const data = await refreshUser();
+        setAccessToken(data.accessToken);
+        setUser(data.user);
+      } catch (err) {
+        console.error("Silent refresh failed:", err);
+        setAccessToken(null);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-useEffect(() => {
-  const refreshToken = async () => {
-    console.log("🔄 Starting silent refresh...");
-    try {
-      const response = await api.post("/auth/refresh");
-      console.log("✓ Full response:", response.data);
-      console.log("✓ User from response:", response.data.user);
-      
-      setAccessToken(response.data.accessToken);
-      setUser(response.data.user);
-      
-      console.log("✓ After setUser, user should be:", response.data.user);
-    } catch (err) {
-      console.error("✗ Silent refresh failed:", err);
-      setAccessToken(null);
-      setUser(null);
-    } finally {
-      console.log("✓ Silent refresh complete, isLoading = false");
-      setIsLoading(false);
-    }
-  };
-  refreshToken();
-}, []);
+    performRefresh();
+  }, []);
 
   const login = (user: User, accessToken: string) => {
     setAccessToken(accessToken);
@@ -79,7 +56,8 @@ useEffect(() => {
 
   const logout = async () => {
     try {
-      await api.post("/auth/logout");
+      const { logoutUser } = await import("../api/auth");
+      await logoutUser();
     } finally {
       setUser(null);
       setAccessToken(null);

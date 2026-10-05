@@ -1,19 +1,14 @@
-// App.tsx
-
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
-
-// Placeholder pages (we'll build these next)
-// const LoginPage = () => <div >Login Page (TODO)</div>;
+import ProtectedRoute from "./components/ProtectedRoutes";
 import LoginPage from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
+
 const RegisterPage = () => <div>Register Page (TODO)</div>;
 const ChatPage = () => <div>Chat Page (TODO)</div>;
 const NotFoundPage = () => <div>404 Not Found</div>;
 
 export default function App() {
-  const { user, isLoading } = useAuth();
-
   return (
     <BrowserRouter>
       <Routes>
@@ -26,23 +21,14 @@ export default function App() {
         <Route
           path="/chat"
           element={
-            isLoading ? (
-              <div className="flex items-center justify-center h-screen">
-                Loading...
-              </div>
-            ) : user ? (
+            <ProtectedRoute>
               <ChatPage />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            </ProtectedRoute>
           }
         />
 
         {/* Default route */}
-        <Route
-          path="/"
-          element={<Navigate to={user ? "/chat" : "/login"} replace />}
-        />
+        <Route path="/" element={<Navigate to="/chat" replace />} />
 
         {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />
