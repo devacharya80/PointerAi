@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,40 +8,92 @@ datasource db {
 }
 
 model User {
-  id String @id @default(uuid())
-
-  firstName String
-  lastName String?
-  email String @unique
-  password String?
-
+  id            String         @id @default(uuid())
+  firstName     String
+  lastName      String?
+  email         String         @unique
+  password      String?
   oauthProvider String?
-  oauthId String?
-
-  profile Profile?
-
+  oauthId       String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   conversations Conversation[]
-  refreshToken RefreshToken[]
-
-  fact Fact[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  fact          Fact[]
+  profile       Profile?
+  refreshToken  RefreshToken[]
 }
 
 model Profile {
-  id String @id @default(uuid())
-
-  userId String @unique
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  academicField AcademicField?
-  currentLevel CurrentLevel?
-  learningGoals String[]
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  academicField  AcademicField?
+  currentLevel   CurrentLevel?
+  learningGoals  String[]
   preferredDepth PreferredDepth?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
+model Conversation {
+  id           String    @id @default(uuid())
+  userId       String
+  title        String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  summarizedAt DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  createdAt      DateTime     @default(now())
+  type           MessageType  @default(NORMAL)
+  options        String[]
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  source         Source[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId])
+}
+
+model Source {
+  id        String   @id @default(uuid())
+  content   String
+  url       String
+  title     String
+  score     Float
+  messageId String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model Fact {
+  id                   String   @id @default(uuid())
+  userId               String
+  content              String
+  sourceConversationId String?
+  createdAt            DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum AcademicField {
@@ -75,39 +122,6 @@ enum PreferredDepth {
   DETAILED
 }
 
-model Conversation {
-  id String @id @default(uuid())
-
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  messages Message[]
-
-  title String
-  summarizedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-}
-
-model Message {
-  id String @id @default(uuid())
-
-  conversationId String
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  role MessageRole
-  type MessageType @default(NORMAL)
-  options String[]
-  content String
-
-  source Source[]
-
-  createdAt DateTime @default(now())
-}
-
 enum MessageRole {
   USER
   ASSISTANT
@@ -116,48 +130,4 @@ enum MessageRole {
 enum MessageType {
   NORMAL
   CLARIFICATION_QUESTION
-}
-
-model RefreshToken {
-  id String @id @default(uuid())
-
-  userId String 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  tokenHash String @unique
-
-  @@index([tokenHash])
-  @@index([userId])
-
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-}
-
-model Source {
-  id String @id @default(uuid())
-  content String
-  url String
-  title String
-  score Float
-  
-  messageId String
-  message Message @relation(fields: [messageId], references: [id],onDelete: Cascade)
-
-  @@index([messageId])
-
-  createdAt DateTime @default(now())
-}
-
-model Fact {
-  id        String   @id @default(uuid())
-
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  content   String
-  sourceConversationId String?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
 }
