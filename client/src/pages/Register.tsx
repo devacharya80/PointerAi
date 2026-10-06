@@ -8,6 +8,7 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { motion } from "motion/react";
 
 const labelStyle = `
   block
@@ -90,8 +91,14 @@ export default function RegisterPage() {
     <>
       {isLoading && <LoadingOverlay message="Creating account..." />}
 
-      <div className="min-h-screen bg-black flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-[430px]">
+      <motion.div className="min-h-screen bg-black flex items-center justify-center px-4 py-8"
+      initial={{opacity:0}}
+        animate={{opacity:1}}
+        transition={{duration:0.5}}>
+        <motion.div className="w-full max-w-[430px]"
+        initial={{opacity:0,y: 20}}
+          animate={{opacity: 1, y: 0}}
+          transition={{duration:0.6}}>
           {/* Auth Card */}
           <div className="bg-[#2f2f2f] rounded-2xl px-8 py-9 shadow-2xl">
             {/* Header */}
@@ -320,8 +327,8 @@ export default function RegisterPage() {
             By continuing, you agree to PointerAI's Terms of Service and Privacy
             Policy.
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </>
   );
 }

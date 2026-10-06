@@ -10,6 +10,7 @@ import { loginSchema, type LoginFormData } from "../schemas/auth.schema";
 
 import LoadingOverlay from "../components/LoadingOverlay";
 import { toast } from "sonner";
+import { motion } from "motion/react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -57,8 +58,16 @@ export default function LoginPage() {
           LOGIN PAGE
       ========================== */}
 
-      <div className="min-h-screen bg-black flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-[430px]">
+      <motion.div className="min-h-screen bg-black flex items-center justify-center px-4 py-8"
+        initial={{opacity:0}}
+        animate={{opacity:1}}
+        transition={{duration:0.5}}
+      >
+        <motion.div className="w-full max-w-[430px]"
+          initial={{opacity:0,y: 20}}
+          animate={{opacity: 1, y: 0}}
+          transition={{duration:0.6}}
+        >
           {/* =========================
               AUTH CARD
           ========================== */}
@@ -310,8 +319,8 @@ export default function LoginPage() {
             By continuing, you agree to PointerAI's Terms of Service and Privacy
             Policy.
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* =========================
           LOADING OVERLAY
