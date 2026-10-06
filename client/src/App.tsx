@@ -5,6 +5,8 @@ import {
   Navigate,
 } from "react-router-dom";
 
+import { motion } from "motion/react";
+
 import ProtectedRoute from "./components/ProtectedRoutes";
 
 import LoginPage from "./pages/Login";
@@ -19,52 +21,91 @@ const NotFoundPage = () => (
   <div>404 Not Found</div>
 );
 
+const AnimatedPage = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.1 }}
+  >
+    {children}
+  </motion.div>
+);
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
 
         {/* Public */}
+
         <Route
           path="/login"
-          element={<LoginPage />}
+          element={
+            <AnimatedPage>
+              <LoginPage />
+            </AnimatedPage>
+          }
         />
 
         <Route
           path="/register"
-          element={<RegisterPage />}
+          element={
+            <AnimatedPage>
+              <RegisterPage />
+            </AnimatedPage>
+          }
         />
 
         <Route
           path="/auth/callback"
-          element={<AuthCallback />}
+          element={
+            <AnimatedPage>
+              <AuthCallback />
+            </AnimatedPage>
+          }
         />
 
         {/* Protected */}
+
         <Route
           path="/chat"
           element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
+            <AnimatedPage>
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            </AnimatedPage>
           }
         />
 
         {/* Default */}
+
         <Route
           path="/"
           element={
-            <Navigate
-              to="/chat"
-              replace
-            />
+            <AnimatedPage>
+              <Navigate
+                to="/chat"
+                replace
+              />
+            </AnimatedPage>
           }
         />
 
         {/* 404 */}
+
         <Route
           path="*"
-          element={<NotFoundPage />}
+          element={
+            <AnimatedPage>
+              <NotFoundPage />
+            </AnimatedPage>
+          }
         />
 
       </Routes>
