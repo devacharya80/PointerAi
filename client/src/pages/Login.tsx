@@ -12,6 +12,7 @@ import {
 } from "../schemas/auth.schema";
 
 import LoadingOverlay from "../components/LoadingOverlay";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -39,6 +40,8 @@ export default function LoginPage() {
       );
 
       login(response.user, response.accessToken);
+
+      toast.success("Logged in successfully",{duration: 3000})
 
       navigate("/chat");
     } catch (err: any) {
