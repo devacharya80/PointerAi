@@ -61,7 +61,6 @@ export const sendMessageController = asyncHandler(async (req: Request, res: Resp
       fullResponse,
       result.webResults,
     );
-    console.log(fullResponse)
     
     if (!res.writableEnded && !res.destroyed) {
       res.write(`data: ${JSON.stringify({ done: true, messageId: savedMessage.id })}\n\n`);
