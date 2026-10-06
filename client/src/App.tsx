@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoutes";
 import LoginPage from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import RegisterPage from "./pages/Register";
+import ConversationList from "./pages/ChatPage/ConversationList"
 
 const ChatPage = () => (
   <div>Chat Page (TODO)</div>
@@ -95,6 +96,11 @@ export default function App() {
               />
             </AnimatedPage>
           }
+        />
+
+        <Route
+        path="/convo"
+        element={<ConversationList/>}
         />
 
         {/* 404 */}
