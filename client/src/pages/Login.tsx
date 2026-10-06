@@ -6,10 +6,7 @@ import { FcGoogle } from "react-icons/fc";
 
 import { useAuth } from "../context/AuthContext";
 import { loginUser } from "../api/auth";
-import {
-  loginSchema,
-  type LoginFormData,
-} from "../schemas/auth.schema";
+import { loginSchema, type LoginFormData } from "../schemas/auth.schema";
 
 import LoadingOverlay from "../components/LoadingOverlay";
 import { toast } from "sonner";
@@ -34,21 +31,16 @@ export default function LoginPage() {
     setError(undefined);
 
     try {
-      const response = await loginUser(
-        data.email,
-        data.password
-      );
+      const response = await loginUser(data.email, data.password);
 
       login(response.user, response.accessToken);
 
-      toast.success("Logged in successfully",{duration: 3000})
+      toast.success("Logged in successfully", { duration: 3000 });
 
       navigate("/chat");
     } catch (err: any) {
       setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to sign in"
+        err.response?.data?.message || err.message || "Unable to sign in",
       );
     } finally {
       setIsLoading(false);
@@ -56,9 +48,7 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${
-      import.meta.env.VITE_BACKEND_URL
-    }/auth/google`;
+    window.location.href = `${import.meta.env.VITE_BACKEND_URL}/auth/google`;
   };
 
   return (
@@ -68,21 +58,17 @@ export default function LoginPage() {
       ========================== */}
 
       <div className="min-h-screen bg-black flex items-center justify-center px-4 py-8">
-
         <div className="w-full max-w-[430px]">
-
           {/* =========================
               AUTH CARD
           ========================== */}
 
           <div className="bg-[#2f2f2f] rounded-2xl px-8 py-9 shadow-2xl">
-
             {/* =========================
                 HEADER
             ========================== */}
 
             <div className="text-center mb-8">
-
               <h1 className="text-[30px] font-semibold tracking-tight text-white">
                 Welcome to PointerAI
               </h1>
@@ -90,7 +76,6 @@ export default function LoginPage() {
               <p className="mt-3 text-[15px] text-gray-400">
                 Your AI-powered learning workspace
               </p>
-
             </div>
 
             {/* =========================
@@ -99,9 +84,7 @@ export default function LoginPage() {
 
             {error && (
               <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
-                <p className="text-sm text-red-400">
-                  {error}
-                </p>
+                <p className="text-sm text-red-400">{error}</p>
               </div>
             )}
 
@@ -135,9 +118,7 @@ export default function LoginPage() {
             >
               <FcGoogle size={21} />
 
-              <span>
-                Continue with Google
-              </span>
+              <span>Continue with Google</span>
             </button>
 
             {/* =========================
@@ -145,15 +126,11 @@ export default function LoginPage() {
             ========================== */}
 
             <div className="flex items-center gap-4 my-7">
-
               <div className="h-px flex-1 bg-gray-600" />
 
-              <span className="text-xs text-gray-500 font-medium">
-                OR
-              </span>
+              <span className="text-xs text-gray-500 font-medium">OR</span>
 
               <div className="h-px flex-1 bg-gray-600" />
-
             </div>
 
             {/* =========================
@@ -164,13 +141,11 @@ export default function LoginPage() {
               onSubmit={handleSubmit(handleLoginSubmit)}
               className="space-y-5"
             >
-
               {/* =========================
                   EMAIL
               ========================== */}
 
               <div>
-
                 <label
                   htmlFor="email"
                   className="block text-sm text-gray-300 mb-2"
@@ -211,7 +186,6 @@ export default function LoginPage() {
                     {errors.email.message}
                   </p>
                 )}
-
               </div>
 
               {/* =========================
@@ -219,13 +193,8 @@ export default function LoginPage() {
               ========================== */}
 
               <div>
-
                 <div className="flex items-center justify-between mb-2">
-
-                  <label
-                    htmlFor="password"
-                    className="text-sm text-gray-300"
-                  >
+                  <label htmlFor="password" className="text-sm text-gray-300">
                     Password
                   </label>
 
@@ -245,7 +214,6 @@ export default function LoginPage() {
                   >
                     Forgot password?
                   </button>
-
                 </div>
 
                 <input
@@ -281,7 +249,6 @@ export default function LoginPage() {
                     {errors.password.message}
                   </p>
                 )}
-
               </div>
 
               {/* =========================
@@ -308,7 +275,6 @@ export default function LoginPage() {
               >
                 Continue
               </button>
-
             </form>
 
             {/* =========================
@@ -316,11 +282,8 @@ export default function LoginPage() {
             ========================== */}
 
             <div className="text-center mt-7">
-
               <p className="text-sm text-gray-400">
-
-                Don't have an account?{" "}
-
+                Don't have an account? 
                 <button
                   type="button"
                   disabled={isLoading}
@@ -335,11 +298,8 @@ export default function LoginPage() {
                 >
                   Sign up
                 </button>
-
               </p>
-
             </div>
-
           </div>
 
           {/* =========================
@@ -347,21 +307,17 @@ export default function LoginPage() {
           ========================== */}
 
           <p className="text-center text-xs text-gray-600 mt-6 px-6">
-            By continuing, you agree to PointerAI's Terms of
-            Service and Privacy Policy.
+            By continuing, you agree to PointerAI's Terms of Service and Privacy
+            Policy.
           </p>
-
         </div>
-
       </div>
 
       {/* =========================
           LOADING OVERLAY
       ========================== */}
 
-      {isLoading && (
-        <LoadingOverlay message="Logging in..." />
-      )}
+      {isLoading && <LoadingOverlay message="Logging in..." />}
     </>
   );
 }

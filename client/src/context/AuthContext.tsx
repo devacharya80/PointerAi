@@ -53,7 +53,6 @@ export const AuthProvider = ({
         setAccessToken(null);
         setUser(null);
 
-        console.log("No active session");
       } finally {
         setIsLoading(false);
       }

@@ -9,10 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoutes";
 
 import LoginPage from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
-
-const RegisterPage = () => (
-  <div>Register Page (TODO)</div>
-);
+import RegisterPage from "./pages/Register";
 
 const ChatPage = () => (
   <div>Chat Page (TODO)</div>

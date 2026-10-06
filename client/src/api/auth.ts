@@ -18,7 +18,7 @@ export interface LoginPayload {
 
 export interface RegisterPayload {
   firstName: string;
-  lastName: string;
+  lastName: string | null;
   email: string;
   password: string;
 }
