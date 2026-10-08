@@ -17,7 +17,7 @@ export const appRateLimiter = new Ratelimit({
 
 export const authRateLimiter = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(5, "1 m"),
+  limiter: Ratelimit.slidingWindow(10, "1 m"),
   analytics: true,
   prefix: "pointerai:ratelimit:auth",
 });
