@@ -1,21 +1,19 @@
+import type { AuthResponse } from "./auth.types";
+
 let accessToken: string | null = null;
+let refreshPromise: Promise<AuthResponse> | null = null;
 
-let refreshPromise: Promise<string> | null = null;
+export const getAccessToken = (): string | null => accessToken;
 
-export const getAccessToken = () => {
-  return accessToken;
-};
-
-export const setAccessToken = (token: string | null) => {
+export const setAccessToken = (token: string | null): void => {
   accessToken = token;
 };
 
-export const getRefreshPromise = () => {
-  return refreshPromise;
-};
+export const getRefreshPromise = (): Promise<AuthResponse> | null =>
+  refreshPromise;
 
 export const setRefreshPromise = (
-  promise: Promise<string> | null,
-) => {
+  promise: Promise<AuthResponse> | null,
+): void => {
   refreshPromise = promise;
 };

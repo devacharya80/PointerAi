@@ -8,6 +8,7 @@ export interface ReadyToStreamResult {
   userMessage: Message;
   messages: ChatMessage[];
   webResults: WebSearchResult[];
+  isNewConversation: boolean;
 }
 
 export interface ClarificationResult {

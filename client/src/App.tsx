@@ -12,14 +12,15 @@ import ProtectedRoute from "./components/ProtectedRoutes";
 import LoginPage from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import RegisterPage from "./pages/Register";
+import ChatPage from "./pages/ChatPage";
 
 const NotFoundPage = () => (
   <div>404 Not Found</div>
 );
 
-const ChatPage = () => (
-  <div>Chat Page</div>
-)
+// const ChatPage = () => (
+//   <div>Chat Page</div>
+// )
 
 const AnimatedPage = ({
   children,
@@ -96,6 +97,15 @@ export default function App() {
             </AnimatedPage>
           }
         />
+
+        <Route
+  path="/chat/:conversationId?"
+  element={
+    <ProtectedRoute>
+      <ChatPage />
+    </ProtectedRoute>
+  }
+/>
 
         {/* 404 */}
 

@@ -24,6 +24,10 @@ export const sendMessageController = asyncHandler(async (req: Request, res: Resp
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  if (result.isNewConversation) {
+  res.write(`data: ${JSON.stringify({ conversationId: result.conversationId })}\n\n`);
+}
+
   const abortController = new AbortController();
   let clientDisconnected = false;
 

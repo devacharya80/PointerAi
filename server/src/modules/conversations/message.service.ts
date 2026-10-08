@@ -19,6 +19,7 @@ export const sendMessage = async (
   content: string,
 ): Promise<ReadyToStreamResult|ClarificationResult> => {
   let activeConversationId: string;
+  let isNewConversation = false;
 
   // 1. Get existing conversation or create a new one
   if (conversationId) {
@@ -29,14 +30,18 @@ export const sendMessage = async (
       },
     });
 
+
+    
     if (!conversation) {
       throw new AppError("Conversation not found or unauthorized", 404);
     }
-
+    
     activeConversationId = conversation.id;
   } else {
     const newConversation = await createConversation(userId);
     activeConversationId = newConversation.id;
+    isNewConversation = true;
+
   }
 
   // 2. Save user message
@@ -182,6 +187,7 @@ systemContent += factsInstructions;
   userMessage,
   messages,
   webResults,
+  isNewConversation
 };
 };
 
