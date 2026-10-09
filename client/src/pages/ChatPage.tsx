@@ -40,11 +40,29 @@ export default function ChatPage() {
           <h1>Chat {conversationId ?? "(new)"}</h1>
 
           <div>
-            {conversation?.messages.map((m) => (
-              <p key={m.id}>
-                <strong>{m.role}:</strong> {m.content}
-              </p>
-            ))}
+            {conversation?.messages.map((m) =>
+  m.type === "CLARIFICATION_QUESTION" ? (
+    <div key={m.id}>
+      <p><strong>ASSISTANT:</strong> {m.content}</p>
+      <div>
+        {m.options?.map((option) => (
+          <button
+            key={option}
+            type="button"
+            disabled={isStreaming}
+            onClick={() => sendMessage(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : (
+    <p key={m.id}>
+      <strong>{m.role}:</strong> {m.content}
+    </p>
+  ),
+)}
 
             {isStreaming && (
               <p>
