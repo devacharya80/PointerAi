@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from "react";
 import type { Message } from "../../api/conversations";
 import MessageBubble from "./MessageBubble";
@@ -27,47 +28,67 @@ export default function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isEmpty =
-    messages.length === 0 && !pendingText && !isStreaming && !error;
+    messages.length === 0 &&
+    !pendingText &&
+    !isStreaming &&
+    !error;
 
-  // Keep the newest content in view.
-  // Instant scrolling while streaming, smooth otherwise.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: isStreaming ? "auto" : "smooth",
       block: "end",
     });
-  }, [messages.length, pendingText, streamingText, isStreaming, error]);
+  }, [
+    messages.length,
+    pendingText,
+    streamingText,
+    isStreaming,
+    error,
+  ]);
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       {isEmpty ? (
         <EmptyState onSelect={onSelect} disabled={disabled} />
       ) : (
-        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-6">
-          {messages.map((m) =>
-            m.type === "CLARIFICATION_QUESTION" ? (
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-4 py-6 md:px-8 md:py-8">
+          {messages.map((message) =>
+            message.type === "CLARIFICATION_QUESTION" ? (
               <ClarificationCard
-                key={m.id}
-                question={m.content}
-                options={m.options ?? []}
+                key={message.id}
+                question={message.content}
+                options={message.options ?? []}
                 disabled={disabled}
                 onSelect={onSelect}
               />
             ) : (
-              <MessageBubble key={m.id} role={m.role} content={m.content} />
+              <MessageBubble
+                key={message.id}
+                role={message.role}
+                content={message.content}
+              />
             ),
           )}
 
           {pendingText && (
-            <MessageBubble role="USER" content={pendingText} pending />
+            <MessageBubble
+              role="USER"
+              content={pendingText}
+              pending
+            />
           )}
 
-          {isStreaming && <StreamingBubble text={streamingText} />}
+          {isStreaming && (
+            <StreamingBubble text={streamingText} />
+          )}
 
           {error && (
-            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div
+              role="alert"
+              className="ml-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+            >
               {error}
-            </p>
+            </div>
           )}
 
           <div ref={bottomRef} />

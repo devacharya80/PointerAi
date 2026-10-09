@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { streamMessage } from "../api/stream";
+import type { Message } from "../api/conversations";
 
 interface UseChatOptions {
   conversationId?: string;
@@ -16,106 +23,157 @@ export const useChat = ({
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sentUserMessage, setSentUserMessage] =
+    useState<Message | null>(null);
+  const [clarificationMessage, setClarificationMessage] =
+    useState<Message | null>(null);
 
-  // Source of truth for the double-send guard.
-  // State updates are async, so a ref is needed here.
   const streamingRef = useRef(false);
-
-  // Cancels the in-flight stream
   const abortRef = useRef<AbortController | null>(null);
-
-  // Always holds the current conversation ID, including
-  // one that arrives mid-stream for a brand-new chat.
   const activeIdRef = useRef<string | undefined>(conversationId);
+  const onCreatedRef = useRef(onConversationCreated);
 
-  // Keep the ref in sync when the prop changes (switching chats)
   useEffect(() => {
     activeIdRef.current = conversationId;
   }, [conversationId]);
 
-  // Abort the stream if the component unmounts
   useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
+    onCreatedRef.current = onConversationCreated;
+  }, [onConversationCreated]);
+
+  useEffect(() => {
+    return () => abortRef.current?.abort();
   }, []);
 
-  const refreshMessages = useCallback(() => {
-    const id = activeIdRef.current;
+  const refreshMessages = useCallback(
+    async (id = activeIdRef.current) => {
+      if (id) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["conversation", id],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["messages", id],
+          }),
+        ]);
+      }
 
-    if (id) {
-      queryClient.invalidateQueries({ queryKey: ["messages", id] });
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["conversations"] });
-  }, [queryClient]);
+      await queryClient.invalidateQueries({
+        queryKey: ["conversations"],
+      });
+    },
+    [queryClient],
+  );
 
   const sendMessage = useCallback(
     async (content: string) => {
-      // 1. Guard against double sends
-      if (streamingRef.current) {
-        return;
-      }
+      if (streamingRef.current) return;
+
+      const trimmed = content.trim();
+      if (!trimmed) return;
 
       streamingRef.current = true;
 
-      // 2. Reset state
       setError(null);
       setStreamingText("");
+      setClarificationMessage(null);
       setIsStreaming(true);
 
-      // 3. Create AbortController
+      // Display the user's message immediately.
+      const optimisticUserMessage: Message = {
+        id: `optimistic-${Date.now()}`,
+        conversationId: activeIdRef.current ?? "",
+        role: "USER",
+        type: "NORMAL",
+        content: trimmed,
+        options: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      setSentUserMessage(optimisticUserMessage);
+
       const controller = new AbortController();
       abortRef.current = controller;
 
       try {
-        // 4. Start streaming
         await streamMessage(
-          content,
+          trimmed,
           activeIdRef.current,
           {
             onText: (text) => {
-              setStreamingText((prev) => prev + text);
+              setStreamingText((current) => current + text);
             },
 
             onConversationId: (id) => {
               activeIdRef.current = id;
-              onConversationCreated?.(id);
+
+              setSentUserMessage((message) =>
+                message
+                  ? { ...message, conversationId: id }
+                  : message,
+              );
+
+              onCreatedRef.current?.(id);
             },
 
-            onDone: () => {
-              refreshMessages();
+            onDone: async () => {
+              // Keep the stream visible while saved data reloads.
+              await refreshMessages(activeIdRef.current);
             },
 
             onError: (message) => {
               setError(message);
             },
 
-            onClarification: () => {
-              refreshMessages();
+            onClarification: async (data) => {
+              activeIdRef.current = data.conversationId;
+
+              setSentUserMessage(data.userMessage);
+              setClarificationMessage(data.aiMessage);
+
+              onCreatedRef.current?.(data.conversationId);
+
+              await refreshMessages(data.conversationId);
             },
           },
           controller.signal,
         );
       } finally {
-        // 5. Reset flags only. streamingText is intentionally
-        // not cleared here, to avoid a flicker before the
-        // refetched messages arrive. It is reset on the next send.
         streamingRef.current = false;
         setIsStreaming(false);
 
         if (abortRef.current === controller) {
           abortRef.current = null;
         }
+
+        // The ChatPage removes the temporary streamed copy
+        // after the saved assistant message has been fetched.
       }
     },
-    [onConversationCreated, refreshMessages],
+    [refreshMessages],
   );
+
+  const clearSentMessage = useCallback(() => {
+    setSentUserMessage(null);
+  }, []);
+
+  const clearClarification = useCallback(() => {
+    setClarificationMessage(null);
+  }, []);
+
+  const clearStreamingText = useCallback(() => {
+    setStreamingText("");
+  }, []);
 
   return {
     sendMessage,
     streamingText,
     isStreaming,
     error,
+    sentUserMessage,
+    clarificationMessage,
+    clearSentMessage,
+    clearClarification,
+    clearStreamingText,
   };
 };

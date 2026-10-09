@@ -1,20 +1,16 @@
+
 import {
   createContext,
+  useCallback,
   useContext,
-  useState,
   useEffect,
+  useMemo,
+  useState,
   type ReactNode,
 } from "react";
-
+import type { User } from "../api/auth.types";
+import { logoutUser, refreshUser } from "../api/auth";
 import { setAccessToken } from "../api/token-store";
-import { refreshUser } from "../api/auth";
-
-interface User {
-  id: string;
-  firstName: string;
-  lastName: string | null;
-  email: string;
-}
 
 interface AuthContextType {
   user: User | null;
@@ -26,82 +22,74 @@ interface AuthContextType {
 export const AuthContext =
   createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({
+export function AuthProvider({
   children,
 }: {
   children: ReactNode;
-}) => {
+}) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [isLoading, setIsLoading] =
-    useState<boolean>(true);
-
-  /*
-   * Restore authentication when the application starts.
-   */
   useEffect(() => {
-    const performRefresh = async () => {
+    let active = true;
+
+    const restoreSession = async () => {
       try {
         const data = await refreshUser();
 
+        if (!active) return;
+
         setAccessToken(data.accessToken);
         setUser(data.user);
-      } catch (error) {
-        /*
-         * This is normal when the user isn't logged in.
-         */
+      } catch {
+        if (!active) return;
+
         setAccessToken(null);
         setUser(null);
-
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     };
 
-    performRefresh();
+    void restoreSession();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  /*
-   * Used after normal login and Google authentication.
-   */
-  const login = (
-    user: User,
-    accessToken: string,
-  ) => {
-    setAccessToken(accessToken);
-    setUser(user);
-  };
+  const login = useCallback(
+    (nextUser: User, accessToken: string) => {
+      setAccessToken(accessToken);
+      setUser(nextUser);
+    },
+    [],
+  );
 
-  /*
-   * Logout
-   */
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
-      const { logoutUser } =
-        await import("../api/auth");
-
       await logoutUser();
     } finally {
-      setUser(null);
       setAccessToken(null);
+      setUser(null);
     }
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, isLoading, login, logout }),
+    [user, isLoading, login, logout],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        login,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
 
   if (!context) {
@@ -111,4 +99,4 @@ export const useAuth = () => {
   }
 
   return context;
-};
+}
