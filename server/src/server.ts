@@ -1,7 +1,12 @@
-import {app} from "./app.js"
+import { app } from "./app.js";
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server is started at port http://localhost:${PORT}`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server started on port ${PORT} (${process.env.NODE_ENV ?? "development"})`);
+});
+
+server.on("error", (err) => {
+  console.error("Server failed to start:", err);
+  process.exit(1);
 });

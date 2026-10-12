@@ -8,13 +8,20 @@ import { issueTokens } from "./token.service.js";
 import type { User } from "../../generated/prisma/client.js";
 import { createOAuthCode, consumeOAuthCode } from "./oauth-code.service.js";
 
+const isProd = process.env.NODE_ENV === "production";
+
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? ("none" as const) : ("lax" as const),
+  path: "/api/auth",
+};
+
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 const setRefreshCookie = (res: Response, token: string) => {
   res.cookie("refreshToken", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    ...REFRESH_COOKIE_OPTIONS,
     maxAge: REFRESH_COOKIE_MAX_AGE,
   });
 };
@@ -88,7 +95,7 @@ export const logoutController = asyncHandler(async (req: Request, res: Response)
     await logout(refreshToken);
   }
 
-  res.clearCookie("refreshToken");
+  res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
 
   return res.status(200).json({ message: "Logged out" });
 });

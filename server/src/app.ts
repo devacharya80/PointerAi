@@ -19,9 +19,15 @@ import userRoute from "./modules/user/user.route.js";
 export const app = express();
 
 app.use(helmet());
+const clientUrl = process.env.CLIENT_URL;
+
+if (!clientUrl && process.env.NODE_ENV === "production") {
+  throw new Error("CLIENT_URL must be set in production");
+}
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: clientUrl ?? "http://localhost:5173",
     credentials: true,
   }),
 );
