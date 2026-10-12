@@ -1,32 +1,29 @@
+
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/AppError.js";
 
 export const createConversation = async (userId: string) => {
-  const newConversation = await prisma.conversation.create({
+  return prisma.conversation.create({
     data: {
-      userId: userId,
+      userId,
       title: "New Conversation",
     },
   });
-  return newConversation;
 };
 
 export const getUserConversations = async (
   userId: string,
-  page: number = 1,
-  limit: number = 20,
+  page = 1,
+  limit = 20,
 ) => {
   const skip = (page - 1) * limit;
 
   const [conversations, total] = await Promise.all([
     prisma.conversation.findMany({
-      where: {
-        userId,
-      },
+      where: { userId },
       select: {
         id: true,
         title: true,
-        messages: false,
         createdAt: true,
         updatedAt: true,
       },
@@ -38,9 +35,7 @@ export const getUserConversations = async (
     }),
 
     prisma.conversation.count({
-      where: {
-        userId,
-      },
+      where: { userId },
     }),
   ]);
 
@@ -65,7 +60,7 @@ export const getConversationById = async (
   const conversation = await prisma.conversation.findFirst({
     where: {
       id: conversationId,
-      userId: userId,
+      userId,
     },
     select: {
       id: true,
@@ -73,9 +68,21 @@ export const getConversationById = async (
       createdAt: true,
       updatedAt: true,
       userId: true,
+
       messages: {
         orderBy: {
           createdAt: "asc",
+        },
+
+        include: {
+          source: {
+            select: {
+              id: true,
+              title: true,
+              url: true,
+              score: true,
+            },
+          },
         },
       },
     },
@@ -85,7 +92,19 @@ export const getConversationById = async (
     throw new AppError("Chat not found or unauthorized", 404);
   }
 
-  return conversation;
+  // Expose the relation as "sources" for the frontend.
+  // Keep the source content in the database, but return
+  // only the fields needed to display the citation links.
+  return {
+    ...conversation,
+
+    messages: conversation.messages.map(
+      ({ source, ...message }) => ({
+        ...message,
+        sources: source,
+      }),
+    ),
+  };
 };
 
 export const deleteConversationById = async (
@@ -93,14 +112,22 @@ export const deleteConversationById = async (
   conversationId: string,
 ) => {
   const conversation = await prisma.conversation.findFirst({
-    where: { id: conversationId, userId },
+    where: {
+      id: conversationId,
+      userId,
+    },
   });
 
   if (!conversation) {
-    throw new AppError("Conversation not found or unauthorized", 404);
+    throw new AppError(
+      "Conversation not found or unauthorized",
+      404,
+    );
   }
 
-  return await prisma.conversation.delete({
-    where: { id: conversationId },
+  return prisma.conversation.delete({
+    where: {
+      id: conversationId,
+    },
   });
 };
