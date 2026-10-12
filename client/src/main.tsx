@@ -1,23 +1,33 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import "./index.css"
-import { AuthProvider } from './context/AuthContext.tsx'
-import { Toaster } from "sonner";
-import { QueryClientProvider } from '@tanstack/react-query'
-import { queryClient } from './lib/queryClient.ts'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 
-createRoot(document.getElementById('root')!).render(
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
+
+import App from "./App";
+import { AuthProvider } from "./context/AuthContext";
+import { queryClient } from "./lib/queryClient";
+
+import "./index.css";
+
+const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+  throw new Error("The root element was not found.");
+}
+
+createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-    <App />
-    <Toaster
-        position="top-center"
-        richColors
-        closeButton
-      />
-    </AuthProvider>
+      <AuthProvider>
+        <App />
+
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+        />
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
-)
+);

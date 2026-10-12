@@ -1,10 +1,13 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
 
+import {
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+
+import { refreshUser } from "../api/auth";
 import { setAccessToken } from "../api/token-store";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../api/axios";
-
 import LoadingOverlay from "../components/LoadingOverlay";
 
 export default function AuthCallback() {
@@ -14,80 +17,46 @@ export default function AuthCallback() {
   const { login } = useAuth();
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const token =
-        searchParams.get("accessToken");
+    let active = true;
 
-      /*
-       * Google authentication failed / no token.
-       */
+    const handleCallback = async () => {
+      const token = searchParams.get("accessToken");
+
       if (!token) {
-        navigate("/login", {
-          replace: true,
-        });
+        if (active) {
+          navigate("/login", { replace: true });
+        }
 
         return;
       }
 
       try {
-        /*
-         * Store the access token received
-         * from the backend.
-         */
         setAccessToken(token);
 
-        /*
-         * Get the authenticated user.
-         *
-         * Your backend already uses /auth/refresh
-         * to return both:
-         *
-         * accessToken
-         * user
-         */
-        const response =
-          await api.post("/auth/refresh");
+        const response = await refreshUser();
 
-        const {
-          accessToken,
-          user,
-        } = response.data;
+        if (!active) return;
 
-        /*
-         * Put BOTH user + token into AuthContext.
-         */
-        login(user, accessToken);
+        login(response.user, response.accessToken);
 
-        /*
-         * Now ProtectedRoute sees:
-         *
-         * user !== null
-         *
-         * and allows /chat.
-         */
-        navigate("/chat", {
-          replace: true,
-        });
-      } catch (error) {
-        console.error(
-          "Google authentication failed:",
-          error,
-        );
+        navigate("/chat", { replace: true });
+      } catch {
+        if (!active) return;
 
         setAccessToken(null);
 
-        navigate("/login", {
-          replace: true,
-        });
+        navigate("/login", { replace: true });
       }
     };
 
-    handleCallback();
+    void handleCallback();
+
+    return () => {
+      active = false;
+    };
   }, [searchParams, navigate, login]);
 
   return (
-    <LoadingOverlay
-      message="Signing you in with Google..."
-    />
+    <LoadingOverlay message="Signing you in with Google..." />
   );
 }

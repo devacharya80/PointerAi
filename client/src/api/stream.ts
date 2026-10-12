@@ -1,4 +1,3 @@
-
 import { refreshUser } from "./auth";
 import { getAccessToken } from "./token-store";
 import type { Message } from "./conversations";
@@ -32,11 +31,11 @@ const isMessage = (value: unknown): value is Message =>
   (value.role === "USER" || value.role === "ASSISTANT") &&
   typeof value.content === "string";
 
-const isClarificationData = (
+const isClarification = (
   value: unknown,
 ): value is ClarificationData =>
   isRecord(value) &&
-  typeof value.type === "string" &&
+  value.type === "clarification" &&
   typeof value.conversationId === "string" &&
   isMessage(value.userMessage) &&
   isMessage(value.aiMessage);
@@ -45,7 +44,9 @@ const buildUrl = (conversationId?: string): string => {
   const base = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
 
   if (!base) {
-    throw new Error("VITE_BACKEND_URL is not configured.");
+    throw new Error(
+      "VITE_BACKEND_URL is not configured in client/.env.",
+    );
   }
 
   return conversationId
@@ -53,27 +54,30 @@ const buildUrl = (conversationId?: string): string => {
     : `${base}/conversations/messages`;
 };
 
-const postMessage = (
+async function postMessage(
   url: string,
   content: string,
   token: string | null,
   signal?: AbortSignal,
-): Promise<Response> =>
-  fetch(url, {
+): Promise<Response> {
+  return fetch(url, {
     method: "POST",
     credentials: "include",
     signal,
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream, application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token
+        ? { Authorization: `Bearer ${token}` }
+        : {}),
     },
     body: JSON.stringify({ content }),
   });
+}
 
-const readErrorMessage = async (
+async function readErrorMessage(
   response: Response,
-): Promise<string> => {
+): Promise<string> {
   try {
     const payload: unknown = await response.json();
 
@@ -83,41 +87,37 @@ const readErrorMessage = async (
     ) {
       return payload.message;
     }
-
-    if (
-      isRecord(payload) &&
-      isRecord(payload.error) &&
-      typeof payload.error.message === "string"
-    ) {
-      return payload.error.message;
-    }
   } catch {
-    // An API error can have an empty or non-JSON body.
+    // Non-JSON error body.
+  }
+
+  if (response.status === 429) {
+    return "Too many requests. Please wait a little and try again.";
   }
 
   return `Request failed (${response.status}). Please try again.`;
-};
+}
 
-const handleClarification = async (
-  raw: unknown,
+async function handleClarification(
+  payload: unknown,
   handlers: StreamHandlers,
-): Promise<void> => {
-  if (!isRecord(raw) || !isClarificationData(raw.data)) {
+): Promise<void> {
+  if (!isRecord(payload) || !isClarification(payload.data)) {
     handlers.onError(
       "The server returned an invalid clarification response.",
     );
     return;
   }
 
-  handlers.onConversationId?.(raw.data.conversationId);
+  handlers.onConversationId?.(payload.data.conversationId);
 
-  await handlers.onClarification?.(raw.data);
-};
+  await handlers.onClarification?.(payload.data);
+}
 
-const handleEvent = async (
+async function handleSseEvent(
   rawEvent: string,
   handlers: StreamHandlers,
-): Promise<void> => {
+): Promise<void> {
   let eventType = "message";
   const dataLines: string[] = [];
 
@@ -131,95 +131,105 @@ const handleEvent = async (
 
   if (dataLines.length === 0) return;
 
-  const data = dataLines.join("\n");
-
-  let parsed: unknown;
+  let payload: unknown;
 
   try {
-    parsed = JSON.parse(data);
+    payload = JSON.parse(dataLines.join("\n"));
   } catch {
     if (eventType === "error") {
-      handlers.onError(data || "The response stream failed.");
+      handlers.onError("The server stream returned an invalid error.");
     }
-
     return;
   }
 
   if (eventType === "error") {
     handlers.onError(
-      isRecord(parsed) && typeof parsed.message === "string"
-        ? parsed.message
-        : "The AI response failed. Please try again.",
+      isRecord(payload) && typeof payload.message === "string"
+        ? payload.message
+        : "The AI response failed. Please try again",
     );
-
     return;
   }
 
-  if (!isRecord(parsed)) return;
+  if (!isRecord(payload)) return;
 
-  if (typeof parsed.conversationId === "string") {
-    handlers.onConversationId?.(parsed.conversationId);
+  if (typeof payload.conversationId === "string") {
+    handlers.onConversationId?.(payload.conversationId);
   }
 
-  if (typeof parsed.text === "string") {
-    handlers.onText(parsed.text);
+  if (typeof payload.text === "string") {
+    handlers.onText(payload.text);
   }
 
   if (
-    parsed.done === true &&
-    typeof parsed.messageId === "string"
+    payload.done === true &&
+    typeof payload.messageId === "string"
   ) {
-    await handlers.onDone(parsed.messageId);
+    await handlers.onDone(payload.messageId);
   }
-};
+}
 
-const readSse = async (
+async function readSse(
   body: ReadableStream<Uint8Array>,
   handlers: StreamHandlers,
-  signal?: AbortSignal,
-): Promise<void> => {
+  signal: AbortSignal | undefined,
+  onDoneEvent: () => void,
+  onErrorEvent: () => void,
+): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
 
   let buffer = "";
 
-  try {
-    while (true) {
-      if (signal?.aborted) break;
+  // Wrap handlers so we can detect whether the server completed.
+  const wrappedHandlers: StreamHandlers = {
+    ...handlers,
 
+    onDone: async (messageId) => {
+      onDoneEvent();
+      await handlers.onDone(messageId);
+    },
+
+    onError: (message) => {
+      onErrorEvent();
+      handlers.onError(message);
+    },
+  };
+
+  try {
+    while (!signal?.aborted) {
       const { done, value } = await reader.read();
 
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
 
-      // SSE accepts both LF and CRLF line endings.
-      const normalized = buffer.replace(/\r\n/g, "\n");
-      const events = normalized.split("\n\n");
+      // Parse complete SSE events without discarding partial ones.
+      let separator: RegExpExecArray | null;
 
-      buffer = events.pop() ?? "";
+      while ((separator = /\r?\n\r?\n/.exec(buffer)) !== null) {
+        const event = buffer.slice(0, separator.index);
 
-      for (const event of events) {
-        await handleEvent(event, handlers);
+        buffer = buffer.slice(
+          separator.index + separator[0].length,
+        );
+
+        await handleSseEvent(event, wrappedHandlers);
       }
     }
 
     buffer += decoder.decode();
 
     if (buffer.trim()) {
-      await handleEvent(
+      await handleSseEvent(
         buffer.replace(/\r\n/g, "\n"),
-        handlers,
+        wrappedHandlers,
       );
     }
   } finally {
-    try {
-      reader.releaseLock();
-    } catch {
-      // The stream may already have been cancelled.
-    }
+    reader.releaseLock();
   }
-};
+}
 
 export const streamMessage = async (
   content: string,
@@ -240,6 +250,9 @@ export const streamMessage = async (
     return;
   }
 
+  let receivedDone = false;
+  let reportedError = false;
+
   try {
     let response = await postMessage(
       url,
@@ -248,15 +261,14 @@ export const streamMessage = async (
       signal,
     );
 
-    // If the access token expired, refresh and retry once.
-    if (response.status === 401) {
+    if (response.status === 401 && !signal?.aborted) {
       let accessToken: string;
 
       try {
         ({ accessToken } = await refreshUser());
       } catch {
         handlers.onError(
-          "Your session has expired. Please log in again.",
+          "Your session has expired. Please sign in again.",
         );
         return;
       }
@@ -269,6 +281,8 @@ export const streamMessage = async (
       );
     }
 
+    if (signal?.aborted) return;
+
     if (!response.ok) {
       handlers.onError(await readErrorMessage(response));
       return;
@@ -277,7 +291,6 @@ export const streamMessage = async (
     const contentType =
       response.headers.get("content-type") ?? "";
 
-    // Clarification responses are JSON, not SSE.
     if (contentType.includes("application/json")) {
       await handleClarification(
         await response.json(),
@@ -287,22 +300,40 @@ export const streamMessage = async (
     }
 
     if (!response.body) {
-      handlers.onError(
-        "The server returned an empty response.",
-      );
+      handlers.onError("The server returned an empty response.");
       return;
     }
 
-    await readSse(response.body, handlers, signal);
+    await readSse(
+      response.body,
+      handlers,
+      signal,
+      () => {
+        receivedDone = true;
+      },
+      () => {
+        reportedError = true;
+      },
+    );
+
+    if (
+      !signal?.aborted &&
+      !receivedDone &&
+      !reportedError
+    ) {
+      handlers.onError(
+        "The connection ended before the response completed.",
+      );
+    }
   } catch (error) {
     if (signal?.aborted) return;
 
     handlers.onError(
       error instanceof TypeError
-        ? "Network error. Check that the backend is running and try again."
+        ? "Network error. Check your connection and try again."
         : error instanceof Error
           ? error.message
-          : "Something went wrong while receiving the AI response.",
+          : "Something went wrong while receiving the response.",
     );
   }
 };

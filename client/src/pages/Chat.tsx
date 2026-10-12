@@ -5,10 +5,20 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+
+import {
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+
 import { useQuery } from "@tanstack/react-query";
-import { getConversationDetail } from "../api/conversations";
+
+import {
+  getConversationDetail,
+} from "../api/conversations";
+
 import { useChat } from "../hooks/useChat";
+
 import AppShell from "../components/layout/AppShell";
 import Sidebar from "../components/sidebar/Sidebar";
 import ChatHeader from "../components/chat/ChatHeader";
@@ -26,18 +36,22 @@ export default function ChatPage() {
   const {
     data: conversation,
     isLoading: conversationLoading,
+    isError: conversationError,
+    refetch: refetchConversation,
   } = useQuery({
     queryKey: ["conversation", conversationId],
     queryFn: () => getConversationDetail(conversationId!),
     enabled: Boolean(conversationId),
-    staleTime: 0,
+    staleTime: 10_000,
     refetchOnWindowFocus: false,
   });
 
   const handleConversationCreated = useCallback(
     (id: string) => {
       if (id !== conversationId) {
-        navigate(`/chat/${id}`, { replace: true });
+        navigate(`/chat/${id}`, {
+          replace: true,
+        });
       }
     },
     [conversationId, navigate],
@@ -58,11 +72,40 @@ export default function ChatPage() {
     onConversationCreated: handleConversationCreated,
   });
 
-  // Remove temporary messages after the server copy arrives.
   useEffect(() => {
-    if (!conversation?.messages) return;
+    const messages = conversation?.messages;
 
-    const finalAssistant = [...conversation.messages]
+    if (!messages) return;
+
+    if (
+      sentUserMessage &&
+      messages.some((message) => {
+        if (message.id === sentUserMessage.id) {
+          return true;
+        }
+
+        return (
+          message.role === "USER" &&
+          message.content === sentUserMessage.content &&
+          Date.parse(message.createdAt) >=
+            Date.parse(sentUserMessage.createdAt) - 1000
+        );
+      })
+    ) {
+      clearSentMessage();
+    }
+
+    if (
+      clarificationMessage &&
+      messages.some(
+        (message) =>
+          message.id === clarificationMessage.id,
+      )
+    ) {
+      clearClarification();
+    }
+
+    const lastAssistantMessage = [...messages]
       .reverse()
       .find(
         (message) =>
@@ -71,96 +114,83 @@ export default function ChatPage() {
       );
 
     if (
-      finalAssistant &&
       !isStreaming &&
       streamingText &&
-      finalAssistant.content === streamingText
+      lastAssistantMessage?.content === streamingText
     ) {
       clearStreamingText();
     }
-
-    if (
-      sentUserMessage &&
-      conversation.messages.some(
-        (message) =>
-          message.role === "USER" &&
-          message.content === sentUserMessage.content &&
-          message.createdAt >= sentUserMessage.createdAt,
-      )
-    ) {
-      clearSentMessage();
-    }
-
-    if (
-      clarificationMessage &&
-      conversation.messages.some(
-        (message) => message.id === clarificationMessage.id,
-      )
-    ) {
-      clearClarification();
-    }
   }, [
     conversation?.messages,
-    isStreaming,
-    streamingText,
     sentUserMessage,
     clarificationMessage,
+    isStreaming,
+    streamingText,
     clearSentMessage,
     clearClarification,
     clearStreamingText,
   ]);
 
-  const send = async (text: string) => {
-    const trimmed = text.trim();
+  const send = useCallback(
+    async (rawText: string) => {
+      const text = rawText.trim();
 
-    if (!trimmed || isStreaming) return;
+      if (!text || isStreaming || text.length > 1000) {
+        return;
+      }
 
-    setInput("");
-    await sendMessage(trimmed);
-  };
-
-  const title =
-    conversation?.title ??
-    (conversationId
-      ? conversationLoading
-        ? "Loading chat..."
-        : "Conversation"
-      : "New chat");
+      setInput("");
+      await sendMessage(text);
+    },
+    [isStreaming, sendMessage],
+  );
 
   const visibleMessages = useMemo(() => {
-    const existing = conversation?.messages ?? [];
-    const combined = [...existing];
+    const messages = [...(conversation?.messages ?? [])];
 
-    // Keep the optimistic message visible until persisted.
-    if (
-      sentUserMessage &&
-      !combined.some(
-        (message) =>
-          message.id === sentUserMessage.id ||
-          (message.role === "USER" &&
-            message.content === sentUserMessage.content &&
-            message.createdAt >= sentUserMessage.createdAt),
-      )
-    ) {
-      combined.push(sentUserMessage);
+    if (sentUserMessage) {
+      const alreadySaved = messages.some((message) => {
+        if (message.id === sentUserMessage.id) {
+          return true;
+        }
+
+        return (
+          message.role === "USER" &&
+          message.content === sentUserMessage.content &&
+          Date.parse(message.createdAt) >=
+            Date.parse(sentUserMessage.createdAt) - 1000
+        );
+      });
+
+      if (!alreadySaved) {
+        messages.push(sentUserMessage);
+      }
     }
 
-    // Clarification responses use JSON rather than SSE.
     if (
       clarificationMessage &&
-      !combined.some(
-        (message) => message.id === clarificationMessage.id,
+      !messages.some(
+        (message) =>
+          message.id === clarificationMessage.id,
       )
     ) {
-      combined.push(clarificationMessage);
+      messages.push(clarificationMessage);
     }
 
-    return combined;
+    return messages;
   }, [
     conversation?.messages,
     sentUserMessage,
     clarificationMessage,
   ]);
+
+  const title =
+    conversation?.title ??
+    (conversationId
+      ? conversationLoading
+        ? "Loading conversation..."
+        : "Conversation"
+      : "New chat");
 
   return (
     <AppShell
@@ -186,7 +216,20 @@ export default function ChatPage() {
             isStreaming={isStreaming}
             error={error}
             disabled={isStreaming}
-            onSelect={(text) => void send(text)}
+            loading={Boolean(
+              conversationId &&
+              conversationLoading &&
+              !conversation,
+            )}
+            loadingError={
+              conversationError && !conversation
+                ? "The conversation couldn't be retrieved. Check your connection and try again."
+                : null
+            }
+            onRetryLoad={() => {
+              void refetchConversation();
+            }}
+            onSelect={send}
           />
 
           <ChatInput

@@ -1,28 +1,31 @@
+import type { ReactNode } from "react";
 
 import {
   BrowserRouter,
+  Link,
   Navigate,
   Route,
   Routes,
 } from "react-router-dom";
+
 import { motion } from "motion/react";
 
 import ProtectedRoute from "./components/ProtectedRoutes";
+
 import LoginPage from "./pages/Login";
-import AuthCallback from "./pages/AuthCallback";
 import RegisterPage from "./pages/Register";
-import ChatPage from "./pages/ChatPage";
+import AuthCallback from "./pages/AuthCallback";
+import ChatPage from "./pages/Chat";
 
 function AnimatedPage({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
       transition={{ duration: 0.12 }}
       className="min-h-dvh"
     >
@@ -41,12 +44,12 @@ function NotFoundPage() {
           Page not found
         </h1>
 
-        <a
-          href="/chat"
+        <Link
+          to="/chat"
           className="mt-4 inline-block text-sm text-sky-400 hover:text-sky-300"
         >
           Return to PointerAI
-        </a>
+        </Link>
       </div>
     </div>
   );
@@ -84,16 +87,7 @@ export default function App() {
         />
 
         <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/chat/:conversationId"
+          path="/chat/:conversationId?"
           element={
             <ProtectedRoute>
               <ChatPage />

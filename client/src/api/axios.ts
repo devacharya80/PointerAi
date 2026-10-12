@@ -1,7 +1,11 @@
 import axios from "axios";
-import type { AxiosError, InternalAxiosRequestConfig } from "axios";
+import type {
+  AxiosError,
+  InternalAxiosRequestConfig,
+} from "axios";
 
 import type { AuthResponse } from "./auth.types";
+
 import {
   getAccessToken,
   getRefreshPromise,
@@ -9,56 +13,73 @@ import {
   setRefreshPromise,
 } from "./token-store";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
+
+if (!BACKEND_URL) {
+  console.error(
+    "VITE_BACKEND_URL is missing. Set it in client/.env.",
+  );
+}
+
 const REFRESH_PATH = "/auth/refresh";
 
-type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+type RetryableConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+};
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL,
+  baseURL: BACKEND_URL,
   withCredentials: true,
+  timeout: 30_000,
+  headers: {
+    Accept: "application/json",
+  },
 });
 
-// Attach the access token to every request except the refresh call
+const isAuthEndpoint = (url = "") =>
+  url.includes("/auth/login") ||
+  url.includes("/auth/register") ||
+  url.includes("/auth/refresh") ||
+  url.includes("/auth/logout");
+
 api.interceptors.request.use((config) => {
   const token = getAccessToken();
 
-  if (token && !config.url?.includes(REFRESH_PATH)) {
+  if (token && !isAuthEndpoint(config.url)) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
   return config;
 });
 
-// The actual refresh work. Runs once per refresh cycle.
-const doRefresh = async (): Promise<AuthResponse> => {
-  try {
-    const { data } = await api.post<AuthResponse>(REFRESH_PATH);
-    setAccessToken(data.accessToken);
-    return data;
-  } catch (error) {
-    setAccessToken(null);
-    throw error;
-  } finally {
-    setRefreshPromise(null);
-  }
-};
-
-/*
- * Shared refresh entry point.
- * If a refresh is already running, every caller gets the same promise.
- * The promise is stored before doRefresh's finally can run,
- * because the finally only runs after the awaited request settles.
- */
 export const refreshAuth = (): Promise<AuthResponse> => {
   const existing = getRefreshPromise();
-  if (existing) return existing;
 
-  const promise = doRefresh();
+  if (existing) {
+    return existing;
+  }
+
+  const promise = (async () => {
+    try {
+      // The refresh route uses the HTTP-only refresh cookie.
+      const { data } = await api.post<AuthResponse>(REFRESH_PATH);
+
+      setAccessToken(data.accessToken);
+
+      return data;
+    } catch (error) {
+      setAccessToken(null);
+      throw error;
+    } finally {
+      setRefreshPromise(null);
+    }
+  })();
+
   setRefreshPromise(promise);
+
   return promise;
 };
 
-// Retry a 401 once after refreshing
 api.interceptors.response.use(
   (response) => response,
 
@@ -69,7 +90,7 @@ api.interceptors.response.use(
       !config ||
       error.response?.status !== 401 ||
       config._retry ||
-      config.url?.includes(REFRESH_PATH);
+      isAuthEndpoint(config.url);
 
     if (shouldSkip) {
       return Promise.reject(error);
@@ -77,9 +98,16 @@ api.interceptors.response.use(
 
     config._retry = true;
 
-    const { accessToken } = await refreshAuth();
-    config.headers.Authorization = `Bearer ${accessToken}`;
+    try {
+      const { accessToken } = await refreshAuth();
 
-    return api(config);
+      config.headers.Authorization = `Bearer ${accessToken}`;
+
+      return api(config);
+    } catch {
+      setAccessToken(null);
+
+      return Promise.reject(error);
+    }
   },
 );

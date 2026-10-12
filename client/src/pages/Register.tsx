@@ -1,39 +1,28 @@
-import { FcGoogle } from "react-icons/fc";
+import { useState } from "react";
+
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { registerSchema, type RegisterFormData } from "../schemas/auth.schema";
-import { useState } from "react";
-import { registerUser } from "../api/auth";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+
+import { FcGoogle } from "react-icons/fc";
 import { motion } from "motion/react";
+import axios from "axios";
+import { toast } from "sonner";
 
-const labelStyle = `
-  block
-  text-sm
-  text-gray-300
-  mb-2
-`;
+import { useAuth } from "../context/AuthContext";
+import { registerUser } from "../api/auth";
 
-const inputStyle = `
-  w-full
-  h-[52px]
-  rounded-xl
-  bg-[#1f1f1f]
-  border
-  border-gray-600
-  px-4
-  text-white
-  placeholder:text-gray-600
-  outline-none
-  focus:border-gray-400
-  transition
-`;
+import {
+  registerSchema,
+  type RegisterFormData,
+} from "../schemas/auth.schema";
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const {
     register,
@@ -41,294 +30,293 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const handleRegister = async (
+    values: RegisterFormData,
+  ) => {
+    if (isLoading) return;
 
-  const handleRegisterSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
+    setServerError("");
 
     try {
-      // confirmPassword is only used for frontend validation.
-      // It should not be sent to the backend.
-      const { confirmPassword, ...userData } = data;
+      const {
+        confirmPassword: _confirmPassword,
+        lastName,
+        ...rest
+      } = values;
 
       const payload = {
-        ...userData,
-        lastName: userData.lastName?.trim() || null,
+        ...rest,
+        ...(lastName?.trim()
+          ? { lastName: lastName.trim() }
+          : {}),
       };
 
       const response = await registerUser(payload);
 
-      // Store authenticated user + access token
       login(response.user, response.accessToken);
 
-      toast.success("Registered successfully", {
-        duration: 3000,
-      });
+      toast.success("Account created successfully!");
 
-      navigate("/chat");
-    } catch (err: any) {
-      const message =
-        err.response?.data?.message || err.message || "Unable to register";
+      navigate("/chat", { replace: true });
+    } catch (error: unknown) {
+      const message = axios.isAxiosError<{ message?: string }>(
+        error,
+      )
+        ? error.response?.data?.message ?? "Unable to register."
+        : "Unable to register. Please try again.";
 
-      toast.error(message, {
-        duration: 3000,
-      });
+      setServerError(message);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleRegister = () => {
-    window.location.href = `${
-      import.meta.env.VITE_BACKEND_URL
-    }/auth/google`;
+    const base = import.meta.env.VITE_BACKEND_URL?.replace(
+      /\/+$/,
+      "",
+    );
+
+    if (!base) {
+      setServerError("Backend URL is not configured.");
+      return;
+    }
+
+    window.location.assign(`${base}/auth/google`);
   };
 
+  const inputClass = (hasError: boolean) =>
+    `h-12 w-full rounded-xl border ${
+      hasError ? "border-red-500" : "border-gray-600"
+    } bg-[#1a1a1a] px-4 text-white outline-none transition placeholder:text-gray-600 focus:border-gray-300 disabled:opacity-50`;
+
   return (
-    <>
-      {isLoading && <LoadingOverlay message="Creating account..." />}
-
-      <motion.div className="min-h-screen bg-black flex items-center justify-center px-4 py-8"
-      initial={{opacity:0}}
-        animate={{opacity:1}}
-        transition={{duration:0.5}}>
-        <motion.div className="w-full max-w-[430px]"
-        initial={{opacity:0,y: 20}}
-          animate={{opacity: 1, y: 0}}
-          transition={{duration:0.6}}>
-          {/* Auth Card */}
-          <div className="bg-[#2f2f2f] rounded-2xl px-8 py-9 shadow-2xl">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <h1 className="text-[30px] font-semibold text-white tracking-tight">
-                Welcome To PointerAI
-              </h1>
-
-              <p className="mt-3 text-[15px] text-gray-400">
-                Start your AI-powered learning workspace
-              </p>
+    <div className="flex min-h-dvh items-center justify-center bg-black px-4 py-8 text-white">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="w-full max-w-[480px]"
+      >
+        <div className="rounded-2xl border border-white/5 bg-[#242424] px-6 py-8 shadow-2xl sm:px-8">
+          <div className="mb-7 text-center">
+            <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-xl bg-white text-sm font-bold text-black">
+              P
             </div>
 
-            {/* Google Button */}
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Create your account
+            </h1>
+
+            <p className="mt-3 text-sm text-gray-400">
+              Start learning with PointerAI
+            </p>
+          </div>
+
+          {serverError && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+            >
+              {serverError}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleGoogleRegister}
+            disabled={isLoading}
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-gray-600 font-medium transition hover:bg-white/5 disabled:opacity-50"
+          >
+            <FcGoogle size={21} />
+            Continue with Google
+          </button>
+
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-xs text-gray-500">OR</span>
+            <div className="h-px flex-1 bg-white/10" />
+          </div>
+
+          <form
+            onSubmit={handleSubmit(handleRegister)}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="firstName"
+                  className="mb-2 block text-sm text-gray-300"
+                >
+                  First name
+                </label>
+
+                <input
+                  {...register("firstName")}
+                  id="firstName"
+                  autoComplete="given-name"
+                  placeholder="John"
+                  disabled={isLoading}
+                  aria-invalid={Boolean(errors.firstName)}
+                  className={inputClass(
+                    Boolean(errors.firstName),
+                  )}
+                />
+
+                {errors.firstName && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {errors.firstName.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="lastName"
+                  className="mb-2 block text-sm text-gray-300"
+                >
+                  Last name (optional)
+                </label>
+
+                <input
+                  {...register("lastName")}
+                  id="lastName"
+                  autoComplete="family-name"
+                  placeholder="Williams"
+                  disabled={isLoading}
+                  aria-invalid={Boolean(errors.lastName)}
+                  className={inputClass(
+                    Boolean(errors.lastName),
+                  )}
+                />
+
+                {errors.lastName && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {errors.lastName.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm text-gray-300"
+              >
+                Email address
+              </label>
+
+              <input
+                {...register("email")}
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                disabled={isLoading}
+                aria-invalid={Boolean(errors.email)}
+                className={inputClass(Boolean(errors.email))}
+              />
+
+              {errors.email && (
+                <p className="mt-2 text-xs text-red-400">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="mb-2 block text-sm text-gray-300"
+              >
+                Password
+              </label>
+
+              <input
+                {...register("password")}
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                disabled={isLoading}
+                aria-invalid={Boolean(errors.password)}
+                className={inputClass(
+                  Boolean(errors.password),
+                )}
+              />
+
+              {errors.password && (
+                <p className="mt-2 text-xs text-red-400">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="mb-2 block text-sm text-gray-300"
+              >
+                Confirm password
+              </label>
+
+              <input
+                {...register("confirmPassword")}
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Repeat your password"
+                disabled={isLoading}
+                aria-invalid={Boolean(errors.confirmPassword)}
+                className={inputClass(
+                  Boolean(errors.confirmPassword),
+                )}
+              />
+
+              {errors.confirmPassword && (
+                <p className="mt-2 text-xs text-red-400">
+                  {errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-2 h-12 w-full rounded-xl bg-white font-semibold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isLoading ? "Creating account..." : "Create account"}
+            </button>
+          </form>
+
+          <p className="mt-7 text-center text-sm text-gray-400">
+            Already have an account?{" "}
             <button
               type="button"
               disabled={isLoading}
-              className="
-                flex
-                justify-center
-                items-center
-                gap-3
-                w-full
-                h-[52px]
-                rounded-xl
-                border
-                border-gray-600
-                bg-[#2f2f2f]
-                hover:bg-[#3a3a3a]
-                text-white
-                font-medium
-                transition
-                duration-200
-                disabled:opacity-50
-                disabled:cursor-not-allowed
-              "
-              onClick={handleGoogleRegister}
+              onClick={() => navigate("/login")}
+              className="font-medium text-white hover:underline"
             >
-              <FcGoogle size={21} />
-
-              <span>Continue with Google</span>
+              Sign in
             </button>
-
-            {/* OR */}
-            <div className="flex items-center gap-4 my-7">
-              <div className="h-px flex-1 bg-gray-600" />
-
-              <span className="text-xs text-gray-500 font-medium">OR</span>
-
-              <div className="h-px flex-1 bg-gray-600" />
-            </div>
-
-            {/* Registration Form */}
-            <form onSubmit={handleSubmit(handleRegisterSubmit)}>
-              <div className="grid grid-cols-2 gap-4">
-                {/* First Name */}
-                <div>
-                  <label htmlFor="firstName" className={labelStyle}>
-                    First Name
-                  </label>
-
-                  <input
-                    type="text"
-                    id="firstName"
-                    placeholder="John"
-                    disabled={isLoading}
-                    className={`${inputStyle} ${
-                      errors.firstName ? "border-red-500" : ""
-                    }`}
-                    {...register("firstName")}
-                  />
-
-                  {errors.firstName && (
-                    <p className="mt-2 text-xs text-red-400">
-                      {errors.firstName.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Last Name */}
-                <div>
-                  <label htmlFor="lastName" className={labelStyle}>
-                    Last Name <span className="text-gray-500">(optional)</span>
-                  </label>
-
-                  <input
-                    type="text"
-                    id="lastName"
-                    placeholder="Williams"
-                    disabled={isLoading}
-                    className={`${inputStyle} ${
-                      errors.lastName ? "border-red-500" : ""
-                    }`}
-                    {...register("lastName")}
-                  />
-
-                  {errors.lastName && (
-                    <p className="mt-2 text-xs text-red-400">
-                      {errors.lastName.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Email */}
-                <div className="col-span-2">
-                  <label htmlFor="email" className={labelStyle}>
-                    Email
-                  </label>
-
-                  <input
-                    type="email"
-                    id="email"
-                    placeholder="you@email.com"
-                    disabled={isLoading}
-                    className={`${inputStyle} ${
-                      errors.email ? "border-red-500" : ""
-                    }`}
-                    {...register("email")}
-                  />
-
-                  {errors.email && (
-                    <p className="mt-2 text-xs text-red-400">
-                      {errors.email.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Password */}
-                <div className="col-span-2">
-                  <label htmlFor="password" className={labelStyle}>
-                    Password
-                  </label>
-
-                  <input
-                    type="password"
-                    id="password"
-                    placeholder="Enter your password"
-                    disabled={isLoading}
-                    className={`${inputStyle} ${
-                      errors.password ? "border-red-500" : ""
-                    }`}
-                    {...register("password")}
-                  />
-
-                  {errors.password && (
-                    <p className="mt-2 text-xs text-red-400">
-                      {errors.password.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Confirm Password */}
-                <div className="col-span-2">
-                  <label htmlFor="confirmPassword" className={labelStyle}>
-                    Confirm Password
-                  </label>
-
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    placeholder="Confirm your password"
-                    disabled={isLoading}
-                    className={`${inputStyle} ${
-                      errors.confirmPassword ? "border-red-500" : ""
-                    }`}
-                    {...register("confirmPassword")}
-                  />
-
-                  {errors.confirmPassword && (
-                    <p className="mt-2 text-xs text-red-400">
-                      {errors.confirmPassword.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="
-                    col-span-2
-                    w-full
-                    h-[52px]
-                    rounded-xl
-                    bg-white
-                    text-black
-                    font-semibold
-                    hover:bg-gray-200
-                    active:scale-[0.99]
-                    transition-all
-                    duration-200
-                    disabled:opacity-50
-                    disabled:cursor-not-allowed
-                  "
-                >
-                  {isLoading ? "Creating Account..." : "Create Account"}
-                </button>
-              </div>
-            </form>
-
-            {/* Login Link */}
-            <div className="text-center mt-7">
-              <p className="text-sm text-gray-400">
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => navigate("/login")}
-                  className="
-                    text-white
-                    font-medium
-                    hover:underline
-                    transition
-                    disabled:opacity-50
-                    disabled:cursor-not-allowed
-                  "
-                >
-                  Sign in
-                </button>
-              </p>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <p className="text-center text-xs text-gray-600 mt-6 px-6">
-            By continuing, you agree to PointerAI's Terms of Service and Privacy
-            Policy.
           </p>
-        </motion.div>
+        </div>
+
+        <p className="mt-5 text-center text-xs text-gray-600">
+          By continuing, you agree to PointerAI's Terms of Service
+          and Privacy Policy.
+        </p>
       </motion.div>
-    </>
+    </div>
   );
 }

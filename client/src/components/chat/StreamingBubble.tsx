@@ -1,22 +1,28 @@
-
+import { memo } from "react";
 import { motion } from "motion/react";
+
 import AssistantAvatar from "./AssistantAvatar";
 import MarkdownContent from "./MarkdownContent";
 
 interface StreamingBubbleProps {
   text: string;
+  streaming?: boolean;
 }
 
-export default function StreamingBubble({
+function StreamingBubbleComponent({
   text,
+  streaming = true,
 }: StreamingBubbleProps) {
   return (
     <div className="flex w-full justify-start gap-3">
       <AssistantAvatar />
 
-      <div className="min-w-0 max-w-full flex-1 pt-0.5 md:max-w-full">
+      <div className="min-w-0 max-w-full flex-1 pt-0.5">
         {text ? (
-          <MarkdownContent content={text} streaming />
+          <MarkdownContent
+            content={text}
+            streaming={streaming}
+          />
         ) : (
           <span className="flex gap-1.5 pt-3">
             {[0, 1, 2].map((i) => (
@@ -37,3 +43,5 @@ export default function StreamingBubble({
     </div>
   );
 }
+
+export default memo(StreamingBubbleComponent);

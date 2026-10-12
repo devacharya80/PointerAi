@@ -1,13 +1,17 @@
-
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
+
 import { useQueryClient } from "@tanstack/react-query";
+
 import { streamMessage } from "../api/stream";
-import type { Message } from "../api/conversations";
+import type {
+  ConversationDetail,
+  Message,
+} from "../api/conversations";
 
 interface UseChatOptions {
   conversationId?: string;
@@ -23,39 +27,82 @@ export const useChat = ({
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [sentUserMessage, setSentUserMessage] =
     useState<Message | null>(null);
+
   const [clarificationMessage, setClarificationMessage] =
     useState<Message | null>(null);
 
   const streamingRef = useRef(false);
+  const streamErrorRef = useRef(false);
+
   const abortRef = useRef<AbortController | null>(null);
+
   const activeIdRef = useRef<string | undefined>(conversationId);
+  const requestIdRef = useRef<string | undefined>(conversationId);
+
   const onCreatedRef = useRef(onConversationCreated);
 
-  useEffect(() => {
-    activeIdRef.current = conversationId;
-  }, [conversationId]);
+  const pendingTextRef = useRef("");
+  const frameRef = useRef<number | null>(null);
+
+  const flushStreamingText = useCallback(() => {
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+
+    const pending = pendingTextRef.current;
+    pendingTextRef.current = "";
+
+    if (pending) {
+      setStreamingText((current) => current + pending);
+    }
+  }, []);
 
   useEffect(() => {
     onCreatedRef.current = onConversationCreated;
   }, [onConversationCreated]);
 
+  // Preserve the in-flight stream when a new conversation ID
+  // arrives from the server. Abort only when navigating elsewhere.
   useEffect(() => {
-    return () => abortRef.current?.abort();
+    if (activeIdRef.current === conversationId) return;
+
+    abortRef.current?.abort();
+
+    activeIdRef.current = conversationId;
+
+    setStreamingText("");
+    setError(null);
+    setSentUserMessage(null);
+    setClarificationMessage(null);
+
+    pendingTextRef.current = "";
+
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+      }
+    };
   }, []);
 
   const refreshMessages = useCallback(
-    async (id = activeIdRef.current) => {
+    async (id = requestIdRef.current) => {
       if (id) {
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: ["conversation", id],
-          }),
-          queryClient.invalidateQueries({
-            queryKey: ["messages", id],
-          }),
-        ]);
+        await queryClient.invalidateQueries({
+          queryKey: ["conversation", id],
+        });
       }
 
       await queryClient.invalidateQueries({
@@ -67,30 +114,38 @@ export const useChat = ({
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (streamingRef.current) return;
-
       const trimmed = content.trim();
-      if (!trimmed) return;
+
+      if (!trimmed || streamingRef.current) return;
 
       streamingRef.current = true;
+      streamErrorRef.current = false;
+
+      requestIdRef.current = activeIdRef.current;
 
       setError(null);
       setStreamingText("");
       setClarificationMessage(null);
       setIsStreaming(true);
 
-      // Display the user's message immediately.
-      const optimisticUserMessage: Message = {
-        id: `optimistic-${Date.now()}`,
+      pendingTextRef.current = "";
+
+      const now = new Date().toISOString();
+
+      const optimisticMessage: Message = {
+        id: `optimistic-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
         conversationId: activeIdRef.current ?? "",
         role: "USER",
         type: "NORMAL",
         content: trimmed,
-        options: null,
-        createdAt: new Date().toISOString(),
+        options: [],
+        createdAt: now,
+        sources: [],
       };
 
-      setSentUserMessage(optimisticUserMessage);
+      setSentUserMessage(optimisticMessage);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -100,57 +155,100 @@ export const useChat = ({
           trimmed,
           activeIdRef.current,
           {
-            onText: (text) => {
-              setStreamingText((current) => current + text);
+            onText: (chunk) => {
+              pendingTextRef.current += chunk;
+
+              if (frameRef.current === null) {
+                frameRef.current = requestAnimationFrame(
+                  flushStreamingText,
+                );
+              }
             },
 
             onConversationId: (id) => {
               activeIdRef.current = id;
+              requestIdRef.current = id;
 
-              setSentUserMessage((message) =>
-                message
-                  ? { ...message, conversationId: id }
-                  : message,
+              setSentUserMessage((current) =>
+                current
+                  ? {
+                      ...current,
+                      conversationId: id,
+                    }
+                  : current,
               );
 
               onCreatedRef.current?.(id);
             },
 
-            onDone: async () => {
-              // Keep the stream visible while saved data reloads.
-              await refreshMessages(activeIdRef.current);
+            onDone: () => {
+              flushStreamingText();
             },
 
             onError: (message) => {
+              streamErrorRef.current = true;
               setError(message);
             },
 
             onClarification: async (data) => {
               activeIdRef.current = data.conversationId;
+              requestIdRef.current = data.conversationId;
 
               setSentUserMessage(data.userMessage);
               setClarificationMessage(data.aiMessage);
 
               onCreatedRef.current?.(data.conversationId);
-
-              await refreshMessages(data.conversationId);
             },
           },
           controller.signal,
         );
       } finally {
+        flushStreamingText();
+
+        try {
+          await refreshMessages(requestIdRef.current);
+        } catch {
+          // The current stream result stays visible even if refresh fails.
+        }
+
+        const requestId = requestIdRef.current;
+
+        const detail = requestId
+          ? queryClient.getQueryData<ConversationDetail>([
+              "conversation",
+              requestId,
+            ])
+          : undefined;
+
+        const savedUserMessage = detail?.messages.some(
+          (message) =>
+            message.role === "USER" &&
+            message.content === trimmed &&
+            Date.parse(message.createdAt) >=
+              Date.parse(optimisticMessage.createdAt) - 1000,
+        );
+
+        if (!savedUserMessage && streamErrorRef.current) {
+          setSentUserMessage(null);
+        }
+
+        if (!requestId && streamErrorRef.current) {
+          setSentUserMessage(null);
+        }
+
         streamingRef.current = false;
         setIsStreaming(false);
 
         if (abortRef.current === controller) {
           abortRef.current = null;
         }
-
-        // The ChatPage removes the temporary streamed copy
-        // after the saved assistant message has been fetched.
       }
     },
-    [refreshMessages],
+    [
+      flushStreamingText,
+      queryClient,
+      refreshMessages,
+    ],
   );
 
   const clearSentMessage = useCallback(() => {
@@ -162,6 +260,13 @@ export const useChat = ({
   }, []);
 
   const clearStreamingText = useCallback(() => {
+    pendingTextRef.current = "";
+
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+
     setStreamingText("");
   }, []);
 

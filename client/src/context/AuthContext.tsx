@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useCallback,
@@ -8,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
 import type { User } from "../api/auth.types";
 import { logoutUser, refreshUser } from "../api/auth";
 import { setAccessToken } from "../api/token-store";
@@ -64,6 +64,7 @@ export function AuthProvider({
     (nextUser: User, accessToken: string) => {
       setAccessToken(accessToken);
       setUser(nextUser);
+      setIsLoading(false);
     },
     [],
   );

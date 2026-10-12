@@ -5,7 +5,9 @@ interface NewChatButtonProps {
   onNavigate: () => void;
 }
 
-export default function NewChatButton({ onNavigate }: NewChatButtonProps) {
+export default function NewChatButton({
+  onNavigate,
+}: NewChatButtonProps) {
   return (
     <Link
       to="/chat"
