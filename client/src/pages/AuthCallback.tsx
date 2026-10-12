@@ -1,11 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import {
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
-
-import { refreshUser } from "../api/auth";
+import { exchangeAuthCode } from "../api/auth";
 import { setAccessToken } from "../api/token-store";
 import { useAuth } from "../context/AuthContext";
 import LoadingOverlay from "../components/LoadingOverlay";
@@ -13,50 +9,41 @@ import LoadingOverlay from "../components/LoadingOverlay";
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
   const { login } = useAuth();
 
+  // React StrictMode runs effects twice in development.
+  // The code is single-use, so only the first exchange must run.
+  const exchangedRef = useRef(false);
+
   useEffect(() => {
-    let active = true;
+    if (exchangedRef.current) return;
+    exchangedRef.current = true;
 
-    const handleCallback = async () => {
-      const token = searchParams.get("accessToken");
+    const code = searchParams.get("code");
 
-      if (!token) {
-        if (active) {
-          navigate("/login", { replace: true });
-        }
+    if (!code) {
+      navigate("/login", { replace: true });
+      return;
+    }
 
-        return;
-      }
+    // Remove the code from the address bar as early as possible.
+    window.history.replaceState(null, "", "/auth/callback");
 
+    const run = async () => {
       try {
-        setAccessToken(token);
-
-        const response = await refreshUser();
-
-        if (!active) return;
+        const response = await exchangeAuthCode(code);
 
         login(response.user, response.accessToken);
 
         navigate("/chat", { replace: true });
       } catch {
-        if (!active) return;
-
         setAccessToken(null);
-
         navigate("/login", { replace: true });
       }
     };
 
-    void handleCallback();
-
-    return () => {
-      active = false;
-    };
+    void run();
   }, [searchParams, navigate, login]);
 
-  return (
-    <LoadingOverlay message="Signing you in with Google..." />
-  );
+  return <LoadingOverlay message="Signing you in with Google..." />;
 }

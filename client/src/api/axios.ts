@@ -40,7 +40,8 @@ const isAuthEndpoint = (url = "") =>
   url.includes("/auth/login") ||
   url.includes("/auth/register") ||
   url.includes("/auth/refresh") ||
-  url.includes("/auth/logout");
+  url.includes("/auth/logout") ||
+  url.includes("/auth/exchange");
 
 api.interceptors.request.use((config) => {
   const token = getAccessToken();

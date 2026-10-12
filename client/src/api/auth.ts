@@ -43,8 +43,19 @@ export const registerUser = async (
   return data;
 };
 
-export const refreshUser = (): Promise<AuthResponse> =>
-  refreshAuth();
+// Exchanges the one-time Google callback code for a session.
+export const exchangeAuthCode = async (
+  code: string,
+): Promise<AuthResponse> => {
+  const { data } = await api.post<Omit<AuthResponse, "message">>(
+    "/auth/exchange",
+    { code },
+  );
+
+  return data;
+};
+
+export const refreshUser = (): Promise<AuthResponse> => refreshAuth();
 
 export const logoutUser = async (): Promise<void> => {
   await api.post("/auth/logout");

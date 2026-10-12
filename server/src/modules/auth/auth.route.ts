@@ -1,6 +1,5 @@
 import express from "express";
 import passport from "passport";
-const authRoute = express.Router();
 
 import {
   registerController,
@@ -8,14 +7,19 @@ import {
   refreshController,
   logoutController,
   googleCallbackController,
+  exchangeCodeController,
 } from "./auth.controller.js";
 
 import { authRateLimitMiddleware } from "../../middleware/rateLimit.middleware.js";
 
+const authRoute = express.Router();
+
 authRoute.post("/register", authRateLimitMiddleware, registerController);
 authRoute.post("/login", authRateLimitMiddleware, loginController);
-authRoute.post("/refresh",authRateLimitMiddleware,  refreshController);
+authRoute.post("/refresh", authRateLimitMiddleware, refreshController);
 authRoute.post("/logout", authRateLimitMiddleware, logoutController);
+authRoute.post("/exchange", authRateLimitMiddleware, exchangeCodeController);
+
 authRoute.get(
   "/google",
   authRateLimitMiddleware,
