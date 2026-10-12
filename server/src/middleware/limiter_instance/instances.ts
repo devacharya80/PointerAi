@@ -1,5 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { redis } from "../../lib/redis.js";
+const isProduction = process.env.NODE_ENV === "production";
 
 export const aiRateLimiter = new Ratelimit({
   redis,
@@ -15,9 +16,11 @@ export const appRateLimiter = new Ratelimit({
   prefix: "pointerai:ratelimit:app",
 });
 
+
 export const authRateLimiter = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(10, "1 m"),
-  analytics: true,
-  prefix: "pointerai:ratelimit:auth",
+  limiter: isProduction
+    ? Ratelimit.slidingWindow(5, "1 m")
+    : Ratelimit.slidingWindow(100, "1 m"),
+  prefix: "auth",
 });
