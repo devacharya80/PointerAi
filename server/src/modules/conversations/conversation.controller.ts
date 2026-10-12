@@ -7,6 +7,8 @@ import {
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { getUserId } from "../../lib/getUserId.js";
 import { paginationSchema } from "./conversation.schema.js";
+import { renameConversationSchema } from "./conversation.schema.js";
+import { renameConversationById } from "./conversation.service.js";
 
 
 export const getConversationsController = asyncHandler(
@@ -44,6 +46,22 @@ export const deleteConversationByIdController = asyncHandler(
     await deleteConversationById(userId,conversationId);
     return res.status(200).json({
       message: "Deleted",
+    });
+  },
+);
+
+export const renameConversationController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const conversationId = req.params.conversationId as string;
+    const userId: string = getUserId(req);
+
+    const { title } = renameConversationSchema.parse(req.body);
+
+    const conversation = await renameConversationById(userId, conversationId, title);
+
+    return res.status(200).json({
+      message: "Renamed",
+      data: conversation,
     });
   },
 );

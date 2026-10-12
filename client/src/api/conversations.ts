@@ -102,6 +102,18 @@ export const getConversationDetail = async (
   };
 };
 
+export const renameConversation = async (
+  conversationId: string,
+  title: string,
+): Promise<Conversation> => {
+  const { data } = await api.patch<Envelope<Conversation>>(
+    `/conversations/${encodeURIComponent(conversationId)}`,
+    { title },
+  );
+
+  return data.data;
+};
+
 export const deleteConversation = async (
   conversationId: string,
 ): Promise<void> => {

@@ -8,6 +8,7 @@ import {
 } from "./conversation.controller.js";
 import { validateUser } from "../../middleware/auth.middleware.js";
 import {sendMessageController} from "./message.controller.js"
+import { renameConversationController } from "./conversation.controller.js";
 
 import { aiRateLimitMiddleware } from "../../middleware/rateLimit.middleware.js";
 
@@ -18,6 +19,7 @@ conversationRoute.get(
   validateUser,
   getConversationByIdController,
 );
+conversationRoute.patch("/:conversationId", validateUser, renameConversationController);
 conversationRoute.delete("/:conversationId",validateUser,deleteConversationByIdController);
 
 // Messages inside a conversation

@@ -131,3 +131,23 @@ export const deleteConversationById = async (
     },
   });
 };
+
+export const renameConversationById = async (
+  userId: string,
+  conversationId: string,
+  title: string,
+) => {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, userId },
+  });
+
+  if (!conversation) {
+    throw new AppError("Conversation not found or unauthorized", 404);
+  }
+
+  return prisma.conversation.update({
+    where: { id: conversationId },
+    data: { title },
+    select: { id: true, title: true, createdAt: true, updatedAt: true },
+  });
+};
