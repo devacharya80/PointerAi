@@ -25,6 +25,7 @@ const exchangeSchema = z.object({
 
 export const registerController = asyncHandler(async (req: Request, res: Response) => {
   const validatedUserData = registerSchema.safeParse(req.body);
+
   if (!validatedUserData.success) {
     return res.status(400).json({
       message: "Invalid input",
@@ -45,6 +46,7 @@ export const registerController = asyncHandler(async (req: Request, res: Respons
 
 export const loginController = asyncHandler(async (req: Request, res: Response) => {
   const validatedUserData = loginSchema.safeParse(req.body);
+
   if (!validatedUserData.success) {
     return res.status(400).json({
       message: "Invalid input",
@@ -70,7 +72,11 @@ export const refreshController = asyncHandler(async (req: Request, res: Response
     throw new AppError("No refresh token provided", 401);
   }
 
-  const { accessToken, user } = await refreshAccessToken(refreshToken);
+  const { accessToken, refreshToken: rotatedToken, user } =
+    await refreshAccessToken(refreshToken);
+
+  // Rotation: the old cookie is now spent. Replace it with the new one.
+  setRefreshCookie(res, rotatedToken);
 
   return res.status(200).json({ accessToken, user });
 });
@@ -88,15 +94,12 @@ export const logoutController = asyncHandler(async (req: Request, res: Response)
 });
 
 export const googleCallbackController = asyncHandler(async (req: Request, res: Response) => {
-  // Passport attaches the authenticated user
   const user = req.user as User;
 
   const tokens = await issueTokens(user.id, user.email);
 
   setRefreshCookie(res, tokens.refreshToken);
 
-  // The access token never goes into the URL. Only a short-lived,
-  // single-use code does.
   const code = await createOAuthCode({
     accessToken: tokens.accessToken,
     user: {

@@ -1,22 +1,19 @@
 import { prisma } from "../../lib/prisma.js";
 import type { RegisterInput, LoginInput } from "./auth.type.js";
 import bcrypt from "bcryptjs";
-import { issueTokens } from "./token.service.js";
+import { issueTokens, hashToken } from "./token.service.js";
 import { AppError } from "../../lib/AppError.js";
-import crypto from "crypto";
-import { generateAccessToken, verifyRefreshToken } from "./token.utils.js";
-
+import { verifyRefreshToken } from "./token.utils.js";
 
 export const register = async (userData: RegisterInput) => {
   const hashedPass = await bcrypt.hash(userData.password, 12);
+
   const result = await prisma.$transaction(
     async (tx) => {
       const email = userData.email.toLowerCase().trim();
 
       const existingUser = await tx.user.findUnique({
-        where: {
-          email,
-        },
+        where: { email },
       });
 
       if (existingUser) {
@@ -26,7 +23,7 @@ export const register = async (userData: RegisterInput) => {
       const newUser = await tx.user.create({
         data: {
           ...userData,
-          email: email,
+          email,
           password: hashedPass,
         },
         omit: {
@@ -40,6 +37,7 @@ export const register = async (userData: RegisterInput) => {
           learningGoals: [],
         },
       });
+
       return newUser;
     },
     {
@@ -49,6 +47,7 @@ export const register = async (userData: RegisterInput) => {
   );
 
   const tokens = await issueTokens(result.id, result.email);
+
   return {
     data: result,
     ...tokens,
@@ -59,9 +58,7 @@ export const login = async (userData: LoginInput) => {
   const email = userData.email.toLowerCase().trim();
 
   const user = await prisma.user.findUnique({
-    where: {
-      email,
-    },
+    where: { email },
   });
 
   const invalidCredentials = new AppError("Invalid email or password", 401);
@@ -70,10 +67,7 @@ export const login = async (userData: LoginInput) => {
     throw invalidCredentials;
   }
 
-  const isPasswordValid = await bcrypt.compare(
-    userData.password,
-    user.password,
-  );
+  const isPasswordValid = await bcrypt.compare(userData.password, user.password);
 
   if (!isPasswordValid) {
     throw invalidCredentials;
@@ -81,73 +75,75 @@ export const login = async (userData: LoginInput) => {
 
   const { password, ...userWithoutPassword } = user;
 
-  const tokens = await issueTokens(
-    userWithoutPassword.id,
-    userWithoutPassword.email,
-  );
+  const tokens = await issueTokens(userWithoutPassword.id, userWithoutPassword.email);
 
   return { data: userWithoutPassword, ...tokens };
 };
 
 export const refreshAccessToken = async (token: string) => {
-  // 1. Verify JWT signature + expiration
-  verifyRefreshToken(token);
+  // 1. Verify signature and expiry. This also gives us the userId.
+  const { userId } = verifyRefreshToken(token);
 
-  // 2. Hash the raw token
-  const hashedRefreshToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  const tokenHash = hashToken(token);
 
-  // 3. Find refresh token + its user
-  const refreshToken = await prisma.refreshToken.findUnique({
-    where: {
-      tokenHash: hashedRefreshToken,
-    },
+  // 2. Look up the exact token by hash.
+  const stored = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
     select: {
+      id: true,
+      userId: true,
       expiresAt: true,
-      user : {
-        select : {
-          id : true,
+      user: {
+        select: {
+          id: true,
           firstName: true,
           lastName: true,
-          email : true
-        }
-      }
+          email: true,
+        },
+      },
     },
   });
 
-  // 4. Token doesn't exist or user doesn't exist
-  if (!refreshToken || !refreshToken.user) {
-    throw new AppError("Invalid or expired refresh token", 401);
+  // 3. Reuse detection.
+  // The signature is valid, but this token was already rotated away.
+  // Someone holds a copy of a spent token, so revoke every session for the user.
+  if (!stored) {
+    await prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+
+    throw new AppError("Session expired. Please sign in again.", 401);
   }
 
-  // 5. Check DB expiration
-  if (Date.now() > refreshToken.expiresAt.getTime()) {
+  // 4. Expired in the database.
+  if (stored.expiresAt.getTime() < Date.now()) {
     await prisma.refreshToken.delete({
-      where: { tokenHash: hashedRefreshToken },
+      where: { id: stored.id },
     });
+
     throw new AppError("Refresh token has expired", 401);
   }
 
-  // 6. Generate a new access token
+  // 5. Rotate: spend this token. Delete by id, after the ownership check above.
+  await prisma.refreshToken.delete({
+    where: { id: stored.id },
+  });
+
+  // 6. Issue a fresh access token and a fresh refresh token.
+  const { accessToken, refreshToken } = await issueTokens(
+    stored.user.id,
+    stored.user.email,
+  );
+
   return {
-    accessToken : generateAccessToken({
-    userId: refreshToken.user.id,
-    email: refreshToken.user.email,
-  }),
-  user: refreshToken.user
-  }
+    accessToken,
+    refreshToken,
+    user: stored.user,
+  };
 };
 
-
 export const logout = async (token: string) => {
-  const hashedRefreshToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
-
   await prisma.refreshToken.deleteMany({
-    where: { tokenHash: hashedRefreshToken },
+    where: { tokenHash: hashToken(token) },
   });
 };

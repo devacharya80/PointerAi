@@ -1,6 +1,11 @@
 import type { JWTPayload } from "./auth.type.js";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { AppError } from "../../lib/AppError.js";
+
+export interface VerifiedRefreshPayload extends JWTPayload {
+  jti: string;
+}
 
 export const generateAccessToken = (payload: JWTPayload): string => {
   const secret = process.env.JWT_ACCESS_SECRET;
@@ -9,9 +14,7 @@ export const generateAccessToken = (payload: JWTPayload): string => {
     throw new Error("JWT_ACCESS_SECRET is not configured");
   }
 
-  return jwt.sign(payload, secret, {
-    expiresIn: "15m",
-  });
+  return jwt.sign(payload, secret, { expiresIn: "15m" });
 };
 
 export const generateRefreshToken = (payload: JWTPayload): string => {
@@ -21,33 +24,37 @@ export const generateRefreshToken = (payload: JWTPayload): string => {
     throw new Error("JWT_REFRESH_SECRET is not configured");
   }
 
-  return jwt.sign(payload, secret, {
-    expiresIn: "7d",
-  });
+  // jti makes every refresh token unique, even when issued in the same second.
+  return jwt.sign(
+    { ...payload, jti: crypto.randomUUID() },
+    secret,
+    { expiresIn: "7d" },
+  );
 };
 
 const verifyToken = (
   token: string,
   secret: string,
   errorMessage: string,
-): JWTPayload => {
+): JWTPayload & { jti?: string } => {
   try {
-    const decodedPayload = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret);
 
     if (
-      typeof decodedPayload === "string" ||
-      typeof decodedPayload.userId !== "string" ||
-      typeof decodedPayload.email !== "string"
+      typeof decoded === "string" ||
+      typeof decoded.userId !== "string" ||
+      typeof decoded.email !== "string"
     ) {
       throw new Error("Invalid token payload");
     }
 
     return {
-      userId: decodedPayload.userId,
-      email: decodedPayload.email,
+      userId: decoded.userId,
+      email: decoded.email,
+      jti: typeof decoded.jti === "string" ? decoded.jti : undefined,
     };
   } catch {
-    throw new AppError(errorMessage,401);
+    throw new AppError(errorMessage, 401);
   }
 };
 
@@ -58,15 +65,31 @@ export const verifyAccessToken = (token: string): JWTPayload => {
     throw new Error("JWT_ACCESS_SECRET is not configured");
   }
 
-  return verifyToken(token, secret, "Invalid or expired access token");
+  const { userId, email } = verifyToken(
+    token,
+    secret,
+    "Invalid or expired access token",
+  );
+
+  return { userId, email };
 };
 
-export const verifyRefreshToken = (token: string): JWTPayload => {
+export const verifyRefreshToken = (token: string): JWTPayload & { jti: string } => {
   const secret = process.env.JWT_REFRESH_SECRET;
 
   if (!secret) {
     throw new Error("JWT_REFRESH_SECRET is not configured");
   }
 
-  return verifyToken(token, secret, "Invalid or expired refresh token");
+  const payload = verifyToken(
+    token,
+    secret,
+    "Invalid or expired refresh token",
+  );
+
+  if (!payload.jti) {
+    throw new AppError("Invalid or expired refresh token", 401);
+  }
+
+  return { userId: payload.userId, email: payload.email, jti: payload.jti };
 };
